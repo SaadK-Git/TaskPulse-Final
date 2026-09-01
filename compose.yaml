@@ -149,7 +149,8 @@ services:
       - "5555:5555"
 
     depends_on:
-      - redis
+      - redis:
+          condition: service_healthy
       - celery
 
     networks:

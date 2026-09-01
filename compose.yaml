@@ -1,0 +1,194 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: taskpulse-postgres
+
+    environment:
+      POSTGRES_DB: taskpulse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    ports:
+      - "5432:5432"
+
+    networks:
+      - taskpulse-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  redis:
+    image: redis:7
+    container_name: taskpulse-redis
+
+    command: redis-server --requirepass redis123
+
+    ports:
+      - "6379:6379"
+
+    networks:
+      - taskpulse-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: taskpulse-api
+
+    env_file:
+      - ./backend/.env
+
+    volumes:
+      - ./backend:/app
+
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    networks:
+      - taskpulse-network
+
+  frontend:
+    build: ./frontend
+
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+    command: npm run dev -- --host 0.0.0.0
+
+    networks:
+      - taskpulse-network
+
+
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: taskpulse-worker
+
+    env_file:
+      - ./backend/.env
+
+    volumes:
+      - ./backend:/app
+
+    command: celery -A app.celery_app.celery_app worker --loglevel=info -E
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    networks:
+      - taskpulse-network
+
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: taskpulse-beat
+
+    env_file:
+      - ./backend/.env
+
+    volumes:
+      - ./backend:/app
+
+    command: celery -A app.celery_app.celery_app beat --loglevel=info
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    networks:
+      - taskpulse-network
+
+  flower:
+    image: mher/flower
+    container_name: taskpulse-flower
+
+    command: >
+      celery
+      --broker=redis://redis:6379/0
+      flower
+      --port=5555
+
+    ports:
+      - "5555:5555"
+
+    depends_on:
+      - redis
+      - celery
+
+    networks:
+      - taskpulse-network
+
+  adminer:
+    image: adminer:latest
+    container_name: taskpulse-adminer
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - taskpulse-network
+
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: taskpulse-redisinsight
+
+    ports:
+      - "5540:5540"
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    networks:
+      - taskpulse-network
+
+
+volumes:
+  postgres_data:
+
+
+networks:
+  taskpulse-network:
+    name: taskpulse-network

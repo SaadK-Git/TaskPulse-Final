@@ -1,0 +1,110 @@
+from app.redis_client import redis_client,async_redis_client
+
+
+import redis
+import redis.asyncio as redis_async
+
+import json
+
+
+# =====================================================
+# REDIS NAMES
+# =====================================================
+
+def get_progress_key(job_id):
+
+    return f"job:progress:value:{job_id}"
+
+
+def get_progress_channel(job_id):
+
+    return f"job:progress:channel:{job_id}"
+
+
+# =====================================================
+# PROGRESS VALUE
+# =====================================================
+
+def set_progress(job_id, progress):
+
+    key = get_progress_key(job_id)
+
+    redis_client.set(
+        key,
+        progress,
+    )
+
+
+async def get_progress(job_id):
+
+    key = get_progress_key(job_id)
+
+    progress = await async_redis_client.get(key)
+
+    if progress is None:
+        return None
+
+    return int(progress)
+
+
+# =====================================================
+# PUB/SUB
+# =====================================================
+
+
+def publish_progress(job_id, progress):
+
+    channel = get_progress_channel(job_id)
+
+    redis_client.publish(
+        channel,
+        progress,
+    )
+
+
+def create_async_pubsub():
+
+    return async_redis_client.pubsub()
+
+##SSE#########
+
+
+def get_log_key(job_id):
+    return f"job:logs:{job_id}"
+
+
+def get_log_channel(job_id):
+    return f"job:logs:channel:{job_id}"
+
+
+async def add_log(job_id, log):
+    key = get_log_key(job_id)
+
+    await async_redis_client.rpush(
+        key,
+        json.dumps(log),
+    )
+
+
+async def get_logs(job_id):
+    key = get_log_key(job_id)
+
+    logs = await async_redis_client.lrange(
+        key,
+        0,
+        -1,
+    )
+
+    return [
+        json.loads(log)
+        for log in logs
+    ]
+
+
+async def publish_log(job_id, log):
+    channel = get_log_channel(job_id)
+
+    await async_redis_client.publish(
+        channel,
+        json.dumps(log),
+    )

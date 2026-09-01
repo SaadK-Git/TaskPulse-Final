@@ -1,0 +1,78 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.example.txt
+
+
+# Python virtual environment
+taskpulseenv/
+.venv/
+venv/
+env/
+ENV/
+
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# Python packaging
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+
+# Type checking and linting
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+
+# Application logs
+*.log
+logs/
+
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+
+# IDE
+.vscode/
+.idea/
+
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini

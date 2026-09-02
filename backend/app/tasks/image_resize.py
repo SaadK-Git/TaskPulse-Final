@@ -10,9 +10,20 @@ from app.tasks.utils import is_cancelled,STAGES
 from app.enums import JobStatus,JobType
 
 # =========================================================
-# IMAGE RESIZE PROCESSING STAGES brought from STAGES in utils.py
+# IMAGE RESIZE PROCESSING STAGES 
 # =========================================================
-
+STAGES = [
+    "Loading source image",
+    "Validating image format",
+    "Reading image metadata",
+    "Preparing resize operation",
+    "Calculating target dimensions",
+    "Resizing image",
+    "Applying image transformations",
+    "Optimizing image",
+    "Saving resized image",
+    "Finalizing image processing",
+]
 # =========================================================
 # CELERY TASK
 # =========================================================

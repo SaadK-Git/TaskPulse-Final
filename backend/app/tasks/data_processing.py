@@ -12,9 +12,20 @@ from app.tasks.utils import is_cancelled,STAGES
 from app.enums import JobStatus,JobType
 
 # =========================================================
-# data processing STAGES brought from STAGES in utils.py
-# =========================================================
-
+# data processing STAGES 
+# # =========================================================
+STAGES = [
+    "Loading source data",
+    "Validating input records",
+    "Cleaning data",
+    "Removing duplicate records",
+    "Normalizing data",
+    "Transforming data",
+    "Applying business rules",
+    "Aggregating results",
+    "Validating processed data",
+    "Saving processed results",
+]
 
 
 # =========================================================

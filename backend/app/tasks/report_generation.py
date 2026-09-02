@@ -12,7 +12,18 @@ from app.enums import JobStatus,JobType
 # REPORT GENERATION PROCESSING STAGES imported from utils.py
 # =========================================================
 
-
+STAGES = [
+    "Loading report configuration",
+    "Fetching source data",
+    "Validating report data",
+    "Preparing report structure",
+    "Processing report sections",
+    "Generating report content",
+    "Applying report formatting",
+    "Generating final document",
+    "Saving generated report",
+    "Finalizing report generation",
+]
 
 # =========================================================
 # CELERY TASK

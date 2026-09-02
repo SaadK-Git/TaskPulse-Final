@@ -6,7 +6,7 @@ from app.database import SessionLocal
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.redis_client import redis_client
-from app.tasks.utils import is_cancelled,STAGES
+from app.tasks.utils import is_cancelled
 from app.enums import JobStatus,JobType
 from app.services.cache_service import (
     get_progress,
@@ -18,10 +18,21 @@ from app.services.cache_service import (
 
     
 # =========================================================
-# BULK EMAIL PROCESSING STAGES imported from utils.py
+# BULK EMAIL PROCESSING STAGES
 # =========================================================
 
-
+STAGES = [
+    "Loading recipient list",
+    "Validating recipient addresses",
+    "Preparing email content",
+    "Building email payloads",
+    "Processing recipient batches",
+    "Dispatching email batches",
+    "Tracking delivery responses",
+    "Processing delivery results",
+    "Finalizing delivery statistics",
+    "Completing bulk email processing",
+]
 
 
 # =========================================================

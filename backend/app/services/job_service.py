@@ -12,7 +12,9 @@ from app.tasks.image_resize import resize_image
 from app.tasks.report_generation import generate_report
 from app.tasks.scheduled import *
 from app.enums import JobStatus,JobType
-
+from .cache_service import get_progress_key
+from app.redis_client import redis_client
+from app.database import get_db
 from uuid import UUID  
 
 from app.services.cache_service import (
@@ -122,6 +124,43 @@ async def handle_job_progress(
     websocket,
     job_id,
 ):
+    # ----------------------------------------------------------------------------------------
+    # Get progress that already exists,if already completed, send it and close the connection
+    # ----------------------------------------------------------------------------------------
+
+    current_progress = await get_progress(
+        job_id
+    )
+
+    if current_progress is not None:
+        # Send the current progress to the client
+        await websocket.send_json(
+            {
+                "job_id": str(job_id),
+                "progress": current_progress,
+            }
+        )
+        #if current progress is 100, close the connection
+        if current_progress >= 100:
+            await websocket.close()
+            return
+        
+    #if in a situation when progress is either lost or not yet set.   
+    elif current_progress is None:
+        # fetch the progress from the database and send it to the client whatever it is
+        db = get_db()
+        job = db.get(Job, job_id)
+        await websocket.send_json(
+                {
+                    "job_id": str(job_id),
+                    "progress": job.progress if job else 0,
+                }
+            )
+        await websocket.close()
+        return
+    # ---------------------------------------------
+    # estabilish pub/sub for new progress
+    # ---------------------------------------------
 
     pubsub = create_async_pubsub()
 
@@ -132,23 +171,6 @@ async def handle_job_progress(
     await pubsub.subscribe(
         channel
     )
-
-    # ---------------------------------------------
-    # Get progress that already exists
-    # ---------------------------------------------
-
-    current_progress = await get_progress(
-        job_id
-    )
-
-    if current_progress is not None:
-
-        await websocket.send_json(
-            {
-                "job_id": str(job_id),
-                "progress": current_progress,
-            }
-        )
 
     # ---------------------------------------------
     # Listen for new progress
@@ -185,12 +207,19 @@ async def handle_job_progress(
         await pubsub.unsubscribe(
             channel
         )
-
+        
         await pubsub.aclose()
+
+        key = get_progress_key(job_id)
+
+        redis_client.delete(
+            key
+        )
 
 
 
 async def event_stream(job_id: UUID):
+        
 
         pubsub = create_async_pubsub()
 

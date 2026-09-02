@@ -8,7 +8,7 @@ from app.database import SessionLocal
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.redis_client import redis_client
-from app.tasks.utils import is_cancelled,STAGES
+from app.tasks.utils import is_cancelled
 from app.enums import JobStatus,JobType
 
 # =========================================================

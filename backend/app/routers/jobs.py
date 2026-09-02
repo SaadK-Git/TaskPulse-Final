@@ -38,8 +38,7 @@ def get_jobs(
     return get_all_jobs(db, current_user.id)
 #---------------------------------
 @router.post(
-    "/createJob",
-    response_model=JobResponse,
+    "/createJob"
 )
 @limiter.limit(settings.RATE_LIMIT)
 def create_new_job(

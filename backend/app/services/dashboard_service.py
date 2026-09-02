@@ -1,9 +1,17 @@
 from app.models import user, job
 from app.enums import JobStatus
 from . import worker_service
-
+from .cache_service import set_Dashboard_stats, get_Dashboard_stats
 
 def get_Admin_dashboard_stats(db):
+    #cache hit..
+    stats = get_Dashboard_stats("admin")
+
+    if stats is not None:
+        return stats
+
+    #caache miss, calculate stats and set cache
+    
     # Get total number of users
     total_users = db.query(user.User).count()
 
@@ -13,16 +21,23 @@ def get_Admin_dashboard_stats(db):
     # Get number of active workers
     active_workers = worker_service.get_worker_count()
 
-    return {
+    stats = {
         "total_users": total_users,
         "total_jobs": total_jobs,
         "worker_status": {
             "active_workers": active_workers
         }
     }
+    set_Dashboard_stats("admin", stats)
+    return stats
 
 
 def get_Member_dashboard_stats(db, user_id):
+    #cache hit..
+    stats = get_Dashboard_stats("member", user_id)
+    if stats is not None:
+        return stats
+    #cache miss, calculate stats and set cache
     # Get total number of jobs for this member
     total_jobs = (
         db.query(job.Job)
@@ -111,7 +126,7 @@ def get_Member_dashboard_stats(db, user_id):
                 total_duration / len(type_jobs)
             )
 
-    return {
+    stats = {
         "total_jobs": total_jobs,
         "pending_jobs": pending_jobs,
         "running": running_jobs,
@@ -119,3 +134,5 @@ def get_Member_dashboard_stats(db, user_id):
         "failed": failed_jobs,
         "average_duration_by_type": average_duration_by_type
     }
+    set_Dashboard_stats("member", stats, user_id)
+    return stats 

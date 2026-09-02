@@ -19,8 +19,29 @@ def get_progress_key(job_id):
 def get_progress_channel(job_id):
 
     return f"job:progress:channel:{job_id}"
+ 
+# =====================================================
+# DASHBOARD VALUE
+# =====================================================
+def set_Dashboard_stats(role, stats,job_id = 0):
 
+    key = f"dashboard:{role}:stats:value:{job_id}" 
 
+    redis_client.set(
+        key,
+        json.dumps(stats),
+        ex = 3600
+    )
+def get_Dashboard_stats(role,job_id):
+
+    key = f"dashboard:{role}:stats:value:{job_id}" 
+
+    stats = redis_client.get(key)
+
+    if stats is None:
+        return None
+
+    return json.loads(stats)
 # =====================================================
 # PROGRESS VALUE
 # =====================================================
@@ -32,6 +53,7 @@ def set_progress(job_id, progress):
     redis_client.set(
         key,
         progress,
+        ex = 3600
     )
 
 

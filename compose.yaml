@@ -149,9 +149,8 @@ services:
       - "5555:5555"
 
     depends_on:
-      - redis:
-          condition: service_healthy
-      - celery
+      redis:
+        condition: service_healthy
 
     networks:
       - taskpulse-network

@@ -149,7 +149,7 @@ async def handle_job_progress(
     elif current_progress is None:
         # fetch the progress from the database and send it to the client whatever it is
         db = get_db()
-        job = db.get(Job, job_id)
+        job = db.query(Job).filter(Job.id == job_id).first()
         await websocket.send_json(
                 {
                     "job_id": str(job_id),
@@ -198,16 +198,16 @@ async def handle_job_progress(
                     }
                 )
 
-            if progress >= 100:
-                await websocket.close()
-                break
+                if progress >= 100:
+                    await websocket.close()
+                    break
 
     finally:
 
         await pubsub.unsubscribe(
             channel
         )
-        
+
         await pubsub.aclose()
 
         key = get_progress_key(job_id)

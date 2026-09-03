@@ -125,10 +125,10 @@ async def get_logs(job_id):
     ]
 
 
-async def publish_log(job_id, log):
+def publish_log(job_id, log):
     channel = get_log_channel(job_id)
 
-    await async_redis_client.publish(
+    await redis_client.publish(
         channel,
         json.dumps(log),
     )

@@ -70,7 +70,7 @@ async def get_progress(job_id):
 
 
 # =====================================================
-# PUB/SUB
+# PUB/SUB for progress updates
 # =====================================================
 
 
@@ -130,3 +130,35 @@ async def publish_log(job_id, log):
         channel,
         json.dumps(log),
     )
+
+    
+# =====================================================
+# PUB/SUB for status updates
+# =====================================================
+def get_progress_status_key(job_id):
+    
+    return f"job:progress:status:{job_id}"
+
+def get_progress_status_channel(job_id):
+    
+    return f"job:progress:status:channel:{job_id}"
+
+def set_progress_status(job_id, status):
+
+    key = get_progress_status_key(job_id)
+
+    redis_client.set(
+        key,
+        status
+    )
+
+def get_progress_status(job_id):
+
+    key = get_progress_status_key(job_id)
+
+    status = redis_client.get(key)
+
+    if status is None:
+        return None
+
+    return status

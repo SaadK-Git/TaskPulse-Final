@@ -1,3 +1,5 @@
+from asyncio import log
+
 from app.redis_client import redis_client,async_redis_client
 
 
@@ -152,13 +154,22 @@ def set_progress_status(job_id, status):
         status
     )
 
-def get_progress_status(job_id):
+async def get_progress_status(job_id):
 
     key = get_progress_status_key(job_id)
 
-    status = redis_client.get(key)
+    status = await async_redis_client.get(key)
 
     if status is None:
         return None
 
     return status
+
+
+async def publish_progress_status(job_id , status):
+    channel = get_progress_status_channel(job_id)
+
+    await async_redis_client.publish(
+        channel,
+        status
+    ) 

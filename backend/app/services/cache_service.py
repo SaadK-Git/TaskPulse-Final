@@ -101,10 +101,10 @@ def get_log_channel(job_id):
     return f"job:logs:channel:{job_id}"
 
 
-async def add_log(job_id, log):
+def add_log(job_id, log):
     key = get_log_key(job_id)
 
-    await async_redis_client.rpush(
+    redis_client.rpush(
         key,
         json.dumps(log),
     )

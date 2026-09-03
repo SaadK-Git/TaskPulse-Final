@@ -166,10 +166,10 @@ async def get_progress_status(job_id):
     return status
 
 
-async def publish_progress_status(job_id , status):
+def publish_progress_status(job_id , status):
     channel = get_progress_status_channel(job_id)
 
-    await async_redis_client.publish(
+    redis_client.publish(
         channel,
         status
     ) 

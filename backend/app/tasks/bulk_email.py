@@ -264,10 +264,7 @@ def send_bulk_email(self, job_id: str):
         # ---------------------------------------------
         log = {
             "job_id": job.id,
-            "message": (
-                "Bulk email processing "
-                "completed successfully"
-            ),
+            "message": "Bulk email processing completed successfully",
             "level": "info",
         }
 

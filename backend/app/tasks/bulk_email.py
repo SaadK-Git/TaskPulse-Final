@@ -152,13 +152,8 @@ def send_bulk_email(self, job_id: str):
 
                 log = {
                     "job_id": job.id,
-                    "message": (
-                        f"Stage {index + 1}/"
-                        f"{len(STAGES)}: "
-                        f"{stage} — "
-                        f"{progress}% complete"
-                    ),
-                    "level": "info",
+                    "message": "Bulk email processing cancelled",
+                    "level": "warning",
                 }
 
                 #Adding the cancellation log to Redis through key+channel.
@@ -166,7 +161,7 @@ def send_bulk_email(self, job_id: str):
                 publish_log(job_id, log)
 
                 # For PostgreSQL
-                log["level"] = JobLogLevel.INFO
+                log["level"] = JobLogLevel.WARNING
 
                 db.add(JobLog(**log))               
 

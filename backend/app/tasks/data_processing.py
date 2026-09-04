@@ -9,7 +9,18 @@ from app.models.job import Job
 from app.models.job_log import JobLog
 from app.redis_client import redis_client
 from app.tasks.utils import is_cancelled
-from app.enums import JobStatus,JobType
+from app.enums import JobLogLevel, JobStatus,JobType
+from app.services.cache_service import (
+    get_progress,
+    get_progress_channel,
+    add_log,
+    publish_log,
+    publish_progress,
+    set_progress,
+    set_progress_status,
+    publish_progress_status,
+    create_async_pubsub,
+)
 
 # =========================================================
 # data processing STAGES 
@@ -60,9 +71,6 @@ def process_data(self, job_id: str):
         # =================================================
         # PHASE 2
         # Idempotency guard
-        #
-        # If this task is delivered again after the job
-        # has already completed, do not execute it again.
         # =================================================
 
         if job.status == JobStatus.COMPLETED:
@@ -73,18 +81,14 @@ def process_data(self, job_id: str):
         # =================================================
         # PHASE 3
         # Establish RUNNING state
-        #
-        # This happens only when the job is entering
-        # execution for the first time.
-        #
-        # If Celery retries the task later, the job will
-        # already have status="running", so we don't
-        # recreate this initial state or initial log.
         # =================================================
 
         if job.status != JobStatus.RUNNING:
 
             job.status = JobStatus.RUNNING
+
+            set_progress_status(job_id, "running")
+            publish_progress_status(job_id, "running")
 
             job.started_at = (
                 datetime.now(timezone.utc)
@@ -94,17 +98,21 @@ def process_data(self, job_id: str):
 
             db.commit()
 
+            #Cache the initial log message in Redis and save in PostgreSQL    
 
-            # ---------------------------------------------
-            # Initial JobLog
-            # ---------------------------------------------
+            log = {
+                "job_id": job.id,
+                "message": "Data processing started",
+                "level": "info",
+            }
+
+            add_log(job_id, log)
+            publish_log(job_id, log)
+
+            log["level"] = JobLogLevel.INFO
 
             db.add(
-                JobLog(
-                    job_id=job.id,
-                    message="Data processing started",
-                    level="info",
-                )
+                JobLog(**log)
             )
 
             db.commit()
@@ -112,32 +120,17 @@ def process_data(self, job_id: str):
 
         # =================================================
         # PHASE 4
-        # Determine the stage from which execution starts
-        #
-        # PostgreSQL is the durable checkpoint.
-        #
-        # Example:
-        #
-        # progress = 70
-        #
-        # means stages 1-7 have already been completed.
-        #
-        # Therefore:
-        #
-        # start_index = 70 // 10
-        #             = 7
-        #
-        # and Python's range(7, 10) begins with stage 8.
+        # Determine resume point
         # =================================================
 
         completed_progress = job.progress or 0
 
-        start_index = completed_progress // 10
+        start_index = max(completed_progress // 10 - 1, 0)
 
 
         # =================================================
         # PHASE 5
-        # Execute the processing stages
+        # Execute stages
         # =================================================
 
         for index in range(
@@ -150,8 +143,31 @@ def process_data(self, job_id: str):
             # ==============================
 
             if is_cancelled(job_id):
+                set_progress_status(job_id, "cancelled")
+                publish_progress_status(job_id, "cancelled")
+
 
                 job.status = JobStatus.CANCELLED
+                job.completed_at = datetime.now(timezone.utc)  
+
+                log = {
+                    "job_id": job.id,
+                    "message": "Data processing cancelled",
+                    "level": "warning",
+                }
+
+                #Adding the cancellation log to Redis through key+channel.
+                add_log(job_id, log)
+                publish_log(job_id, log)
+
+                # For PostgreSQL
+                log["level"] = JobLogLevel.WARNING
+
+                db.add(JobLog(**log))               
+
+                job.result = {
+                    "message": "Job cancelled"
+                }
 
                 db.commit()
 
@@ -159,82 +175,65 @@ def process_data(self, job_id: str):
                     "status": "cancelled"
                 }
 
-            #===============================
+            #==============================
             stage = STAGES[index]
 
             progress = (index + 1) * 10
 
 
-            # -------------------------------------------------
-            # Simulate the actual work of this stage
-            # -------------------------------------------------
+            # ---------------------------------------------
+            # Simulate stage work
+            # ---------------------------------------------
 
-            time.sleep(3)
+            time.sleep(30)
 
 
-            # =================================================
-            # PHASE 5A
-            # Durable PostgreSQL checkpoint + JobLog
-            #
-            # These two operations belong to the same
-            # PostgreSQL transaction.
-            #
-            # Therefore we don't end up with:
-            #
-            #     progress = 70
-            #     but no Stage 7 log
-            #
-            # or vice versa.
-            # =================================================
+            # ---------------------------------------------
+            # Durable checkpoint + JobLog
+            # ---------------------------------------------
 
             job.progress = progress
 
-            db.add(
-                JobLog(
-                    job_id=job.id,
-                    message=(
-                        f"Stage {index + 1}/"
-                        f"{len(STAGES)}: "
-                        f"{stage} — "
-                        f"{progress}% complete"
-                    ),
-                    level="info",
-                )
-            )
+            log = {
+                "job_id": job.id,
+                "message": (
+                    f"Stage {index + 1}/"
+                    f"{len(STAGES)}: "
+                    f"{stage} — "
+                    f"{progress}% complete"
+                ),
+                "level": "info",
+            }
+
+            # For PostgreSQL
+            log["level"] = JobLogLevel.INFO
+
+            db.add(JobLog(**log))
 
             db.commit()
 
 
-            # =================================================
-            # PHASE 5B
-            # Redis live-progress update
-            #
-            # Redis is being used for the dashboard/WebSocket
-            # side of the architecture.
-            #
-            # PostgreSQL remains the durable checkpoint.
-            #
-            # If Redis temporarily fails, we DON'T want to
-            # destroy the actual data-processing task.
-            # =================================================
+            # ---------------------------------------------
+            # Redis live progress
+            # ---------------------------------------------
 
             try:
-
-                redis_client.set(
-                    progress_key,
+                #setting progress key + publishing the progress to respective channel for websocket.
+                set_progress(
+                    job_id,
                     progress,
                 )
 
-            except Exception:
+                publish_progress(
+                    job_id,
+                    progress,
+                )
 
-                # Redis is unavailable.
-                #
-                # The actual task has still successfully
-                # completed this stage because the durable
-                # PostgreSQL checkpoint already exists.
-                #
-                # The dashboard may temporarily lack the
-                # latest live progress value.
+                add_log(job_id, log)
+                publish_log(job_id, log)
+                #set progress key for logs + publishing the log to respective channel for websocket.
+
+            except Exception:
 
                 pass
 
@@ -243,9 +242,6 @@ def process_data(self, job_id: str):
         # PHASE 6
         # Task completed
         # =================================================
-
-        job.status = JobStatus.COMPLETED
-
         job.progress = 100
 
         job.completed_at = (
@@ -253,42 +249,46 @@ def process_data(self, job_id: str):
         )
 
         job.result = {
-            "message": (
-                "Data processing "
-                "completed successfully"
-            ),
+            "message":"Data processing completed successfully",
             "stages_completed": len(STAGES),
         }
-
-
-        # =================================================
-        # Persist final Job state
-        # =================================================
 
         db.commit()
 
 
-        # =================================================
+        # ---------------------------------------------
         # Final completion log
-        # =================================================
+        # ---------------------------------------------
+        log = {
+            "job_id": job.id,
+            "message": "Data processing completed successfully",
+            "level": "info",
+        }
+
+        add_log(job_id, log)
+        publish_log(job_id, log)
+
+        log["level"] = JobLogLevel.INFO    
 
         db.add(
-            JobLog(
-                job_id=job.id,
-                message=(
-                    "Data processing "
-                    "completed successfully"
-                ),
-                level="info",
-            )
+            JobLog(**log)
         )
 
         db.commit()
 
+        # ---------------------------------------------
+        # Final Status Update.
+        # ---------------------------------------------
 
-        # =================================================
+        #progress status key update.
+        set_progress_status(job_id, "completed")
+        publish_progress_status(job_id, "completed")
+
+        job.status = JobStatus.COMPLETED
+
+        # ---------------------------------------------
         # Dashboard cache invalidation
-        # =================================================
+        # ---------------------------------------------
 
         try:
 
@@ -301,10 +301,6 @@ def process_data(self, job_id: str):
             pass
 
 
-        # =================================================
-        # Return result to Celery
-        # =================================================
-
         return job.result
 
 
@@ -315,36 +311,16 @@ def process_data(self, job_id: str):
 
     except Exception as exc:
 
-        # ---------------------------------------------
-        # Roll back any uncommitted database changes
-        # ---------------------------------------------
-
         db.rollback()
 
-
         try:
-
-            # -----------------------------------------
-            # Ask Celery to retry the task
-            #
-            # Retry delays:
-            #
-            # attempt 1 → 1 second
-            # attempt 2 → 2 seconds
-            # attempt 3 → 4 seconds
-            # -----------------------------------------
 
             raise self.retry(
                 exc=exc,
                 countdown=2 ** self.request.retries,
             )
 
-
         except self.MaxRetriesExceededError:
-
-            # =========================================
-            # All retries exhausted
-            # =========================================
 
             job = db.get(
                 Job,
@@ -352,6 +328,9 @@ def process_data(self, job_id: str):
             )
 
             if job:
+
+                set_progress_status(job_id, "failed")
+                publish_progress_status(job_id, "failed")
 
                 job.status = JobStatus.FAILED
 
@@ -363,28 +342,26 @@ def process_data(self, job_id: str):
 
                 db.commit()
 
-
-                # -------------------------------------
-                # Record permanent failure
-                # -------------------------------------
+                log = {
+                    "job_id": job.id,
+                    "message": (
+                        f"Data processing failed: "
+                        f"{exc}"
+                    ),
+                    "level": "error",
+                }
 
                 db.add(
-                    JobLog(
-                        job_id=job.id,
-                        message=(
-                            f"Data processing failed: "
-                            f"{exc}"
-                        ),
-                        level="error",
-                    )
+                    JobLog(**log)
                 )
+
+                log["level"] = JobLogLevel.ERROR
+
+                add_log(job_id, log)
+                publish_log(job_id, log)
 
                 db.commit()
 
-
-                # -------------------------------------
-                # Dashboard cache is now stale
-                # -------------------------------------
 
                 try:
 
@@ -402,7 +379,7 @@ def process_data(self, job_id: str):
 
     # =====================================================
     # PHASE 8
-    # Always close the database session
+    # Close database session
     # =====================================================
 
     finally:

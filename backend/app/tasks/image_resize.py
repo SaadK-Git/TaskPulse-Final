@@ -7,8 +7,19 @@ from app.models.job import Job
 from app.models.job_log import JobLog
 from app.redis_client import redis_client
 from app.tasks.utils import is_cancelled
-from app.enums import JobStatus,JobType
+from app.enums import JobStatus,JobType,JobLogLevel
 
+from app.services.cache_service import (
+    get_progress,
+    get_progress_channel,
+    add_log,
+    publish_log,
+    publish_progress,
+    set_progress,
+    set_progress_status,
+    publish_progress_status,
+    create_async_pubsub,
+)
 # =========================================================
 # IMAGE RESIZE PROCESSING STAGES 
 # =========================================================
@@ -72,6 +83,9 @@ def resize_image(self, job_id: str):
 
             job.status = JobStatus.RUNNING
 
+            set_progress_status(job_id, "running")
+            publish_progress_status(job_id, "running")
+
             job.started_at = (
                 datetime.now(timezone.utc)
             )
@@ -80,13 +94,21 @@ def resize_image(self, job_id: str):
 
             db.commit()
 
+            #Cache the initial log message in Redis and save in PostgreSQL    
+
+            log = {
+                "job_id": job.id,
+                "message": "Image resize started",
+                "level": "info",
+            }
+
+            add_log(job_id, log)
+            publish_log(job_id, log)
+
+            log["level"] = JobLogLevel.INFO
 
             db.add(
-                JobLog(
-                    job_id=job.id,
-                    message="Image resize processing started",
-                    level="info",
-                )
+                JobLog(**log)
             )
 
             db.commit()
@@ -99,7 +121,7 @@ def resize_image(self, job_id: str):
 
         completed_progress = job.progress or 0
 
-        start_index = completed_progress // 10
+        start_index = max(completed_progress // 10 - 1, 0)
 
 
         # =================================================
@@ -111,13 +133,37 @@ def resize_image(self, job_id: str):
             start_index,
             len(STAGES),
         ):
+            
             # ==============================
             # CHECK FOR CANCELLATION
             # ==============================
 
             if is_cancelled(job_id):
+                set_progress_status(job_id, "cancelled")
+                publish_progress_status(job_id, "cancelled")
+
 
                 job.status = JobStatus.CANCELLED
+                job.completed_at = datetime.now(timezone.utc)  
+
+                log = {
+                    "job_id": job.id,
+                    "message": "Image resize cancelled",
+                    "level": "warning",
+                }
+
+                #Adding the cancellation log to Redis through key+channel.
+                add_log(job_id, log)
+                publish_log(job_id, log)
+
+                # For PostgreSQL
+                log["level"] = JobLogLevel.WARNING
+
+                db.add(JobLog(**log))               
+
+                job.result = {
+                    "message": "Job cancelled"
+                }
 
                 db.commit()
 
@@ -125,17 +171,17 @@ def resize_image(self, job_id: str):
                     "status": "cancelled"
                 }
 
-            #===============================
+            #==============================
             stage = STAGES[index]
 
             progress = (index + 1) * 10
 
 
             # ---------------------------------------------
-            # Simulate image-processing work
+            # Simulate stage work
             # ---------------------------------------------
 
-            time.sleep(3)
+            time.sleep(30)
 
 
             # ---------------------------------------------
@@ -144,18 +190,21 @@ def resize_image(self, job_id: str):
 
             job.progress = progress
 
-            db.add(
-                JobLog(
-                    job_id=job.id,
-                    message=(
-                        f"Stage {index + 1}/"
-                        f"{len(STAGES)}: "
-                        f"{stage} — "
-                        f"{progress}% complete"
-                    ),
-                    level="info",
-                )
-            )
+            log = {
+                "job_id": job.id,
+                "message": (
+                    f"Stage {index + 1}/"
+                    f"{len(STAGES)}: "
+                    f"{stage} — "
+                    f"{progress}% complete"
+                ),
+                "level": "info",
+            }
+
+            # For PostgreSQL
+            log["level"] = JobLogLevel.INFO
+
+            db.add(JobLog(**log))
 
             db.commit()
 
@@ -165,11 +214,20 @@ def resize_image(self, job_id: str):
             # ---------------------------------------------
 
             try:
-
-                redis_client.set(
-                    progress_key,
+                #setting progress key + publishing the progress to respective channel for websocket.
+                set_progress(
+                    job_id,
                     progress,
                 )
+
+                publish_progress(
+                    job_id,
+                    progress,
+                )
+
+                add_log(job_id, log)
+                publish_log(job_id, log)
+                #set progress key for logs + publishing the log to respective channel for websocket.
 
             except Exception:
 
@@ -180,9 +238,6 @@ def resize_image(self, job_id: str):
         # PHASE 6
         # Task completed
         # =================================================
-
-        job.status = JobStatus.COMPLETED
-
         job.progress = 100
 
         job.completed_at = (
@@ -190,13 +245,7 @@ def resize_image(self, job_id: str):
         )
 
         job.result = {
-            "message": (
-                "Image resize processing "
-                "completed successfully"
-            ),
-            "output": (
-                f"/outputs/{job.id}.jpg"
-            ),
+            "message":"Image resize completed successfully",
             "stages_completed": len(STAGES),
         }
 
@@ -206,20 +255,32 @@ def resize_image(self, job_id: str):
         # ---------------------------------------------
         # Final completion log
         # ---------------------------------------------
+        log = {
+            "job_id": job.id,
+            "message": "Image resizing completed successfully",
+            "level": "info",
+        }
+
+        add_log(job_id, log)
+        publish_log(job_id, log)
+
+        log["level"] = JobLogLevel.INFO    
 
         db.add(
-            JobLog(
-                job_id=job.id,
-                message=(
-                    "Image resize processing "
-                    "completed successfully"
-                ),
-                level="info",
-            )
+            JobLog(**log)
         )
 
         db.commit()
 
+        # ---------------------------------------------
+        # Final Status Update.
+        # ---------------------------------------------
+
+        #progress status key update.
+        set_progress_status(job_id, "completed")
+        publish_progress_status(job_id, "completed")
+
+        job.status = JobStatus.COMPLETED
 
         # ---------------------------------------------
         # Dashboard cache invalidation
@@ -264,6 +325,9 @@ def resize_image(self, job_id: str):
 
             if job:
 
+                set_progress_status(job_id, "failed")
+                publish_progress_status(job_id, "failed")
+
                 job.status = JobStatus.FAILED
 
                 job.error = str(exc)
@@ -274,17 +338,23 @@ def resize_image(self, job_id: str):
 
                 db.commit()
 
+                log = {
+                    "job_id": job.id,
+                    "message": (
+                        f"Image resize failed: "
+                        f"{exc}"
+                    ),
+                    "level": "error",
+                }
 
                 db.add(
-                    JobLog(
-                        job_id=job.id,
-                        message=(
-                            f"Image resize processing failed: "
-                            f"{exc}"
-                        ),
-                        level="error",
-                    )
+                    JobLog(**log)
                 )
+
+                log["level"] = JobLogLevel.ERROR
+
+                add_log(job_id, log)
+                publish_log(job_id, log)
 
                 db.commit()
 

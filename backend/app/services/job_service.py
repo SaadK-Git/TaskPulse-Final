@@ -98,7 +98,7 @@ def cancel_job(db:Session , job_id:int):
                 detail="Job not found"
             )
 
-        if job.status not in ["queued", "running"]:
+        if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
             raise HTTPException(
                 status_code=400,
                 detail="Job cannot be cancelled"
@@ -262,8 +262,8 @@ async def event_stream_jobStatus(job_id: UUID):
     db.close()
 
     if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
-        return job.status.value
-            
+        yield f"data: {job.status.value}\n\n"
+        return
     #otherwise continue with the pub/sub for new logs
     pubsub = create_async_pubsub()
     
@@ -305,8 +305,9 @@ async def event_stream_jobLogs(job_id: UUID):
     db.close()
 
     if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
-        return get_job_alllogs(db, job_id)
-            
+        yield get_job_alllogs(db, job_id)
+        return
+
     #otherwise continue with the pub/sub for new logs
     pubsub = create_async_pubsub()
 

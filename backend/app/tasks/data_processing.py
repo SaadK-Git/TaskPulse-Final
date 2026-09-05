@@ -86,28 +86,24 @@ def process_data(self, job_id: str):
         if job.status != JobStatus.RUNNING:
 
             job.status = JobStatus.RUNNING
-
-            set_progress_status(job_id, "running")
-            publish_progress_status(job_id, "running")
-
             job.started_at = (
                 datetime.now(timezone.utc)
             )
 
             job.progress = 0
 
+            set_progress_status(job_id, "running")
+            publish_progress_status(job_id, "running")
+
             db.commit()
 
             #Cache the initial log message in Redis and save in PostgreSQL    
 
             log = {
-                "job_id": job.id,
+                "job_id": str(job.id),
                 "message": "Data processing started",
                 "level": "info",
             }
-
-            add_log(job_id, log)
-            publish_log(job_id, log)
 
             log["level"] = JobLogLevel.INFO
 
@@ -117,7 +113,8 @@ def process_data(self, job_id: str):
 
             db.commit()
 
-
+            add_log(job_id, log)
+            publish_log(job_id, log)
         # =================================================
         # PHASE 4
         # Determine resume point
@@ -141,24 +138,16 @@ def process_data(self, job_id: str):
             # ==============================
             # CHECK FOR CANCELLATION
             # ==============================
-
             if is_cancelled(job_id):
-                set_progress_status(job_id, "cancelled")
-                publish_progress_status(job_id, "cancelled")
-
-
                 job.status = JobStatus.CANCELLED
+
                 job.completed_at = datetime.now(timezone.utc)  
 
                 log = {
-                    "job_id": job.id,
+                    "job_id": str(job.id),
                     "message": "Data processing cancelled",
                     "level": "warning",
                 }
-
-                #Adding the cancellation log to Redis through key+channel.
-                add_log(job_id, log)
-                publish_log(job_id, log)
 
                 # For PostgreSQL
                 log["level"] = JobLogLevel.WARNING
@@ -170,6 +159,14 @@ def process_data(self, job_id: str):
                 }
 
                 db.commit()
+                # db.refresh(job)
+                #Adding the cancellation log to Redis through key+channel.
+                add_log(job_id, log)
+                publish_log(job_id, log)
+
+                #progress status key update.
+                set_progress_status(job_id, "cancelled")
+                publish_progress_status(job_id, "cancelled")
 
                 return {
                     "status": "cancelled"
@@ -195,7 +192,7 @@ def process_data(self, job_id: str):
             job.progress = progress
 
             log = {
-                "job_id": job.id,
+                "job_id": str(job.id),
                 "message": (
                     f"Stage {index + 1}/"
                     f"{len(STAGES)}: "
@@ -249,7 +246,10 @@ def process_data(self, job_id: str):
         )
 
         job.result = {
-            "message":"Data processing completed successfully",
+            "message": (
+                "Data processing "
+                "completed successfully"
+            ),
             "stages_completed": len(STAGES),
         }
 
@@ -260,7 +260,7 @@ def process_data(self, job_id: str):
         # Final completion log
         # ---------------------------------------------
         log = {
-            "job_id": job.id,
+            "job_id": str(job.id),
             "message": "Data processing completed successfully",
             "level": "info",
         }
@@ -343,7 +343,7 @@ def process_data(self, job_id: str):
                 db.commit()
 
                 log = {
-                    "job_id": job.id,
+                    "job_id": str(job.id),
                     "message": (
                         f"Data processing failed: "
                         f"{exc}"

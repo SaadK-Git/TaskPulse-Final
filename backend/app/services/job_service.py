@@ -15,7 +15,9 @@ from app.enums import JobStatus,JobType
 from .cache_service import get_progress_key,get_progress_status_channel,set_progress_status,get_progress_status
 from app.redis_client import redis_client
 from app.database import SessionLocal
-from uuid import UUID  
+from uuid import UUID 
+import asyncio
+import json
 
 from app.services.cache_service import (
     get_progress,
@@ -255,7 +257,7 @@ async def handle_job_progress(
 
 async def event_stream_jobStatus(job_id: UUID):
     # ----------------------------------------------------------------------------------------
-    # Get progress that already exists,if already completed, send it and close the connection
+    # Get progress that already exists, if already completed, send it and close the connection
     # ----------------------------------------------------------------------------------------
     db = SessionLocal()
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -264,100 +266,113 @@ async def event_stream_jobStatus(job_id: UUID):
     if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
         yield f"data: {job.status.value}\n\n"
         return
-    #otherwise continue with the pub/sub for new logs
+        
+    # otherwise continue with the pub/sub for new logs
     pubsub = create_async_pubsub()
     
-    #establish connection with pubsub channels for status updates.
+    # establish connection with pubsub channels for status updates.
     progress_status_channel = get_progress_status_channel(job_id)
 
     try:
-
         await pubsub.subscribe(progress_status_channel)
 
         while True:
-
             message = await pubsub.get_message(
                 ignore_subscribe_messages=True,
                 timeout=1,
             )
 
+            # --- THE CLEANUP & CRASH FIX ---
+            # Ensure message is not None BEFORE checking or extracting keys
             if message is not None:
+                status_data = message['data']  # Clean string due to decode_responses=True
+                
+                # Send the data to the client
+                yield f"data: {status_data}\n\n"
 
-                yield (
-                    f"data: {message['data']}\n\n"
-                )
+                # Check for the terminal events safely inside the message validation block
+                if status_data in ["failed", "cancelled", "completed"]:                 
+                    break          
 
-            if message["data"] in ["failed", "cancelled"]:                 
-                break          
+            # Yield execution back to the FastAPI event loop to prevent blocking during empty polling intervals
+            await asyncio.sleep(0.1)
 
     finally:
-
         await pubsub.unsubscribe(progress_status_channel)
-
         await pubsub.aclose()
 
+
 async def event_stream_jobLogs(job_id: UUID):
-  # ----------------------------------------------------------------------------------------
-    # Get progress that already exists,if already completed, send it and close the connection
+    # ----------------------------------------------------------------------------------------
+    # Get progress that already exists, if already completed, send it and close the connection
     # ----------------------------------------------------------------------------------------
     db = SessionLocal()
     job = db.query(Job).filter(Job.id == job_id).first()
-    db.close()
-
+    
     if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
-        yield get_job_alllogs(db, job_id)
+        historical_summary = get_job_alllogs(db, job_id)
+        db.close()
+        yield f"data: {json.dumps(historical_summary)}\n\n"
         return
 
-    #otherwise continue with the pub/sub for new logs
-    pubsub = create_async_pubsub()
+    db.close()
+
+    # otherwise continue with the pub/sub for new logs
+    pubsub = create_async_pubsub()  # Make sure this client inherits decode_responses=True
 
     log_channel = get_log_channel(job_id)
     status_channel = get_progress_status_channel(job_id)
 
     try:
-
         # -----------------------------
         # 1. Historical logs
         # -----------------------------
-
         logs = await get_logs(job_id)
-
         for log in logs:
-
-            yield (
-                f"data: {json.dumps(log)}\n\n"
-            )
+            yield f"data: {json.dumps(log)}\n\n"
 
         # -----------------------------
         # 2. Subscribe for new logs
         # -----------------------------
-
         await pubsub.subscribe(log_channel)
         await pubsub.subscribe(status_channel)
 
         # -----------------------------
         # 3. Live logs
         # -----------------------------
-
         while True:
-
             message = await pubsub.get_message(
                 ignore_subscribe_messages=True,
                 timeout=1,
             )
-            if message is not None and message["channel"] == status_channel and message["data"] in ["failed", "cancelled"]:
-                #Stop the stream.
-                break
-
+            
             if message is not None:
+                # No manual byte-decoding needed! message["channel"] and message["data"] are already strings.
+                channel_name = message["channel"]
+                raw_data = message["data"]
 
-                yield (
-                    f"data: {message['data']}\n\n"
-                )
+                # Process the cancellation/failure conditions from the status channel
+                if channel_name == status_channel:
+                    if raw_data in ["failed", "cancelled","completed"]:
+                        # Wrap the terminal state in JSON so the frontend doesn't break parsing it
+                        terminal_payload = json.dumps({"status": raw_data, "message": f"Job execution {raw_data}."})
+                        yield f"data: {terminal_payload}\n\n"
+                        break
+                    
+                    # If it's just a general progress status update (e.g. "processing")
+                    status_payload = json.dumps({"status": raw_data})
+                    yield f"data: {status_payload}\n\n"
+                
+                # Process standard incoming logs from the log channel
+                elif channel_name == log_channel:
+                    # If your task code publishes log messages as pre-serialized JSON strings, pass them directly.
+                    # If it publishes raw strings, wrap it: json.dumps({"message": raw_data})
+                    yield f"data: {raw_data}\n\n"
+            
+            # Yield execution back to the event loop to keep the stream fluid
+            await asyncio.sleep(0.1)
 
     finally:
-
         await pubsub.unsubscribe(log_channel)
         await pubsub.unsubscribe(status_channel)
         await pubsub.aclose()
-

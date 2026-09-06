@@ -30,17 +30,14 @@ def get_allProjects(
         db,
         page: int = 1,
         page_size: int = 10,
-        jobtype : JobType = JobType.ALL,
+        jobtype : str = "",
         state : bool = True
 ):
     # Calculate the offset for pagination
     offset = (page - 1) * page_size
-
-    # Query to get jobs based on the state
-    jobs_query = db.query(job.Job).filter(job.Job.is_active == state)
     #Apply Filtering
-    if jobtype != JobType.ALL:
-        jobs_query = jobs_query.filter(job.Job.job_type == jobtype)
+    if jobtype != "":
+        jobs_query = jobs_query.filter(job.Job.job_type == JobType(jobtype))
         total_jobs = jobs_query.count()  # Update total count after filtering
     else:
     # Get total count of jobs matching the state

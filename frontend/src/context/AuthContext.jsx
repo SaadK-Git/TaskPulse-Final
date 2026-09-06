@@ -1,68 +1,78 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { login as loginRequest } from "../api/auth.js";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { fetchCurrentUser, loginUser, logoutUser, registerUser } from "../api/auth";
+import { clearPersistedState } from "../hooks/usePersistedState";
 
-const API_BASE = "http://localhost:8000/api";
-const AUTH_BASE = "http://localhost:8000/api/auth";
 const AuthContext = createContext(null);
 
+/**
+ * There's no token in JS-land to check — auth lives entirely in the
+ * HttpOnly `access_token` cookie set by POST /auth/login. So "am I logged
+ * in" is answered by asking the server: GET /auth/me either returns the
+ * user (cookie valid) or 401s (cookie missing/expired). We do that once
+ * on mount so a page refresh doesn't bounce a logged-in user to /login.
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("loading"); // "loading" | "authed" | "guest"
 
-  const fetchMe = useCallback(async () => {
+  const refreshSession = useCallback(async () => {
     try {
-      const res = await fetch(`${AUTH_BASE}/me`, { credentials: "include" });
-      if (!res.ok) {
-        setUser(null);
-        return null;
-      }
-      const data = await res.json();
-      setUser(data);
-      return data;
+      const me = await fetchCurrentUser();
+      setUser(me);
+      setStatus("authed");
+      return me;
     } catch {
       setUser(null);
+      setStatus("guest");
       return null;
     }
   }, []);
 
-  // Restore session on refresh / initial load — the cookie survives,
-  // React state does not, so we ask the backend who's logged in.
   useEffect(() => {
-    fetchMe().finally(() => setLoading(false));
-  }, [fetchMe]);
+    refreshSession();
+  }, [refreshSession]);
 
-  async function login(username, password) {
-    const result = await loginRequest(username, password);
-    if (result.success) {
-      const me = await fetchMe();
-      return { success: true, user: me };
-    }
-    return result;
-  }
+  const login = useCallback(
+    async ({ name, password }) => {
+      await loginUser({ name, password });
+      return refreshSession();
+    },
+    [refreshSession]
+  );
 
-  async function logout() {
+  const register = useCallback((payload) => registerUser(payload), []);
+
+  const logout = useCallback(async () => {
     try {
-      await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" });
-    } catch {
-      // even if the request fails, clear local state so the UI reflects logged-out
+      await logoutUser();
+    } finally {
+      setUser(null);
+      setStatus("guest");
+      clearPersistedState("adm.");
+      clearPersistedState("mem.");
     }
-    setUser(null);
-  }
+  }, []);
 
-  const value = {
-    user,
-    isAuthenticated: !!user,
-    loading,
-    login,
-    logout,
-    refresh: fetchMe,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        role: user?.role,
+        status,
+        isAuthed: status === "authed",
+        login,
+        register,
+        logout,
+        refreshSession,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }

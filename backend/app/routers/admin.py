@@ -21,7 +21,7 @@ def get_all_users(
 
 @router.get("/allProjects")
 @limiter.limit(settings.RATE_LIMIT)
-def get_all_projects(
+def get_all_Jobs(
     request : Request,
     current_user = require_role(UserRole.ADMIN),
     db: Session = Depends(get_db),
@@ -30,7 +30,7 @@ def get_all_projects(
     jobtype: str = "",
     state: bool = True
 ):
-    return get_allProjects(db, page, page_size, jobtype, state)
+    return get_all_Jobs(db, page, page_size, jobtype, state)
 
 @router.put("/users/{user_id}/deactivate")
 @limiter.limit(settings.RATE_LIMIT)

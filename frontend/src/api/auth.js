@@ -1,29 +1,23 @@
-import axios from "axios";
+import { apiClient } from "./client";
 
-const BASE_URL = "http://localhost:8000/api/auth";
+/**
+ * Matches app/routers/auth.py.
+ * Note: login is by `name`, not email — the backend's Userlogin schema
+ * only has { name, password }. Registration still collects an email.
+ */
 
-export async function login(username, password) {
-  try {
-    const response = await axios.post(`${BASE_URL}/login`, { username, password } , {withCredentials: true});
-    return { success: true, status: response.status, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      status: error.response?.status,
-      data: { message: error.response?.data?.detail ?? "Login failed. Try again." },
-    };
-  }
+export function registerUser({ name, email, password, role = "member" }) {
+  return apiClient.post("/auth/register", { name, email, password, role });
 }
 
-export async function register(email, username, password) {
-  try {
-    const response = await axios.post(`${BASE_URL}/register`, { email, username, password }, {withCredentials: true});
-    return { success: true, status: response.status, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      status: error.response?.status,
-      data: { message: error.response?.data?.detail ?? "Registration failed. Try again." },
-    };
-  }
+export function loginUser({ name, password }) {
+  return apiClient.post("/auth/login", { name, password });
+}
+
+export function fetchCurrentUser() {
+  return apiClient.get("/auth/me");
+}
+
+export function logoutUser() {
+  return apiClient.get("/auth/logout");
 }

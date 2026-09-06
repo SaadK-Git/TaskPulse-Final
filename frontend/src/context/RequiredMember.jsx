@@ -1,26 +1,19 @@
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
-export default function RequireMember({ children }) {
-  const { user, loading, isAuthenticated } = useAuth();
+export default function RequiredMember() {
+  const { status, role } = useAuth();
+  const location = useLocation();
 
-  // Same pattern as RequireAdmin: don't flash login or the panel while
-  // the /me round trip is still deciding who's logged in.
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <span style={{ fontSize: 14, color: "#6B7280" }}>Checking your session...</span>
-      </div>
-    );
+  if (status === "loading") return null;
+
+  if (status === "guest") {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (role !== "member") {
+    return <Navigate to="/admin" replace />;
   }
 
-  if (user.role !== "member") {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
+  return <Outlet />;
 }

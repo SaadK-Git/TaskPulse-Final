@@ -1,26 +1,19 @@
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
-export default function RequireAdmin({ children }) {
-  const { user, loading, isAuthenticated } = useAuth();
+export default function RequiredAdmin() {
+  const { status, role } = useAuth();
+  const location = useLocation();
 
-  // Don't flash the login page or the admin panel while we're still
-  // waiting on the /me round trip that decides which one is correct.
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <span style={{ fontSize: 14, color: "#6B7280" }}>Checking your session...</span>
-      </div>
-    );
+  if (status === "loading") return null; // AuthProvider is still checking /auth/me
+
+  if (status === "guest") {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (role !== "admin") {
+    return <Navigate to="/member" replace />;
   }
 
-  if (user.role !== "admin") {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
+  return <Outlet />;
 }

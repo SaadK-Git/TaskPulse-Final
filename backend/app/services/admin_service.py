@@ -26,7 +26,7 @@ def get_AllUsers(
         "users": users
     }
 
-def get_allProjects(
+def get_all_Jobs(
         db,
         page: int = 1,
         page_size: int = 10,

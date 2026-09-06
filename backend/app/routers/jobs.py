@@ -118,6 +118,7 @@ async def job_logs_sse(job_id: UUID):
     return StreamingResponse(
         event_stream_jobLogs(job_id),
         media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache","Connection": "close"},
     )
 
 @router.get("/jobstatus/sse/{job_id}")
@@ -126,4 +127,5 @@ async def job_status_sse(job_id: UUID):
     return StreamingResponse(
         event_stream_jobStatus(job_id),
         media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache","Connection": "close"},
     )

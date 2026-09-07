@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, Field
-
+from pydantic import ConfigDict
 
 # =====================================================
 # CREATE JOB
@@ -42,16 +42,13 @@ class JobResponse(BaseModel):
 # =====================================================
 
 class JobLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)  # lets pydantic read straight off the ORM object
 
     id: int
-
-    job_id: int
-
+    job_id: UUID          # was `int` — the column is actually UUID
     message: str
-
     level: str
-
-    created_at: datetime
+    timestamp: datetime   # was `created_at` — that field doesn't exist on JobLog, the real column is `timestamp`
 
 #Web socket progress update
 class JobProgress(BaseModel):

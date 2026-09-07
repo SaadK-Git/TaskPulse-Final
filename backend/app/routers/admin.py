@@ -11,7 +11,7 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @limiter.limit(settings.RATE_LIMIT)
 def get_all_users(
     request : Request,
-    current_user = require_role(UserRole.ADMIN),
+    current_user = Depends(require_role(UserRole.ADMIN)),
     db: Session = Depends(get_db),
     page: int = 1,
     page_size: int = 10,
@@ -23,7 +23,7 @@ def get_all_users(
 @limiter.limit(settings.RATE_LIMIT)
 def get_all_Jobs(
     request : Request,
-    current_user = require_role(UserRole.ADMIN),
+    current_user = Depends(require_role(UserRole.ADMIN)),
     db: Session = Depends(get_db),
     page: int = 1,
     page_size: int = 10,
@@ -37,7 +37,7 @@ def get_all_Jobs(
 def deactivate_user(
     request : Request,
     user_id: int,
-    current_user = require_role(UserRole.ADMIN),
+    current_user = Depends(require_role(UserRole.ADMIN)),
     db: Session = Depends(get_db)
 ):
     return deactivate_User(db, user_id)
@@ -47,7 +47,7 @@ def deactivate_user(
 def activate_user(
     request : Request,
     user_id: int,
-    current_user = require_role(UserRole.ADMIN),
+    current_user = Depends(require_role(UserRole.ADMIN)),
     db: Session = Depends(get_db)
 ):
     return activate_User(db, user_id)

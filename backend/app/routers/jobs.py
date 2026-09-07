@@ -34,7 +34,7 @@ router = APIRouter(
 def get_jobs(
     request: Request,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role(UserRole.MEMBER)),
+    current_user = Depends(require_role(UserRole.MEMBER)),
     page: int = 1,
     page_size: int = 10
 ):

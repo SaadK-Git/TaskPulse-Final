@@ -3,9 +3,9 @@ from app.enums import JobStatus
 from . import worker_service
 from .cache_service import set_Dashboard_stats, get_Dashboard_stats
 
-def get_Admin_dashboard_stats(db):
+def get_Admin_dashboard_stats(db, user_id):
     #cache hit..
-    stats = get_Dashboard_stats("admin")
+    stats = get_Dashboard_stats("admin", user_id)
 
     if stats is not None:
         return stats
@@ -28,7 +28,7 @@ def get_Admin_dashboard_stats(db):
             "active_workers": active_workers
         }
     }
-    set_Dashboard_stats("admin", stats)
+    set_Dashboard_stats("admin", stats, user_id)
     return stats
 
 

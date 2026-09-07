@@ -227,19 +227,20 @@ async def handle_job_progress(
                     await websocket.close()
                     break
 
-                #Continue fetching the data if the procedure is not either canceled or failed.
-                progress = int(
-                    message["data"]
-                )
+                elif channel == progress_channel:
+                    #Continue fetching the data if the procedure is not either canceled or failed.
+                    progress = int(
+                        message["data"]
+                    )
 
-                
-                #Send the progress to the client
-                await websocket.send_json(
-                    {
-                        "job_id": str(job_id),
-                        "progress": progress,
-                    }
-                )
+                    
+                    #Send the progress to the client
+                    await websocket.send_json(
+                        {
+                            "job_id": str(job_id),
+                            "progress": progress,
+                        }
+                    )
 
                 #If the progress is 100, close the connection since the task has been completed.
                 if progress >= 100:

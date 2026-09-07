@@ -1,0 +1,119 @@
+.job-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--card-accent, var(--border-strong));
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: cardIn 220ms ease-out both;
+}
+
+.job-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.job-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.job-card__heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.job-card__title {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-card__owner {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.job-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.job-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.job-card__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.job-card__progress-track {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-sunken);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.job-card__progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms ease-out;
+}
+
+.job-card__progress-value {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  width: 38px;
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.job-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.job-card__id {
+  color: var(--ink-faint);
+  font-size: 11.5px;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,47 @@
+.modal--wide {
+  width: 640px;
+}
+
+.logs-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.logs-modal__body {
+  background: var(--panel-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  height: 320px;
+  overflow-y: auto;
+  font-size: 12.5px;
+}
+
+.logs-modal__empty {
+  color: var(--ink-faint);
+  padding: 8px 2px;
+}
+
+.logs-modal__line {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-soft);
+}
+
+.logs-modal__level {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  min-width: 52px;
+}
+
+.logs-modal__line--error .logs-modal__level {
+  color: var(--signal-failed);
+}
+
+.logs-modal__line--warning .logs-modal__level {
+  color: var(--signal-running);
+}

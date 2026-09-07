@@ -1,0 +1,74 @@
+.user-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--card-accent, var(--border-strong));
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: cardIn 220ms ease-out both;
+}
+
+.user-card__avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--panel-sunken);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--ink-soft);
+  flex: 0 0 auto;
+}
+
+.user-card__info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.user-card__name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__email {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__status {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.user-card__status--active {
+  color: var(--signal-done);
+  background: var(--signal-done-bg);
+}
+
+.user-card__status--inactive {
+  color: var(--signal-pending);
+  background: var(--signal-pending-bg);
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

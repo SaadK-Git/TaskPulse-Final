@@ -1,61 +1,101 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { jobProgressSocketUrl, jobStatusStreamUrl } from "../api/jobs";
 
-/**
- * Matches app/enums.py JobStatus exactly (lowercase, matching your DB/enum
- * values — NOT what I originally guessed).
- */
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+const RECONNECT_DELAY_MS = 1500;
 
 /**
- * One job = one WebSocket (progress) + one SSE stream (status).
+ * One job = one WebSocket (progress) + one SSE stream (status), with
+ * auto-reconnect. This matters specifically because `uvicorn --reload`
+ * hard-kills the whole process on every backend file save, dropping every
+ * open connection with no warning — without a retry loop, a card just
+ * freezes forever the moment that happens, which looks exactly like "the
+ * websocket doesn't work" even though the code and the connection were
+ * both fine a second earlier.
  *
- * Real payload shapes, confirmed from job_service.py:
- * - WebSocket sends plain JSON: {"job_id": "...", "progress": <int>} —
- *   no "stage" field is ever sent, so we don't track one.
- * - The status SSE does NOT send JSON. handle_job_progress/
- *   event_stream_jobStatus literally does `yield f"data: {status}\n\n"`
- *   where status is the bare string ("running", "completed", etc), not
- *   `{"status": "running"}`. event.data IS the status — JSON.parse-ing
- *   it (what the previous version did) throws on every single message,
- *   which is why the status pill never updated. Fixed below.
+ * We only retry while the job is still non-terminal — once we've seen a
+ * terminal status (from either stream), we stop for good, same as before.
  */
 export function useJobLiveState(job) {
   const [progress, setProgress] = useState(job.progress ?? 0);
   const [status, setStatus] = useState(job.status);
+  const statusRef = useRef(job.status);
 
   useEffect(() => {
-    if (TERMINAL_STATUSES.has(job.status)) return; // finished jobs never open sockets
+    statusRef.current = status;
+  }, [status]);
 
-    const ws = new WebSocket(jobProgressSocketUrl(job.id));
+  useEffect(() => {
+    if (TERMINAL_STATUSES.has(job.status)) return;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (typeof data.progress === "number") setProgress(data.progress);
-      } catch {
-        /* ignore malformed frame */
-      }
+    let cancelled = false;
+    let ws;
+    let retryTimer;
+
+    function connect() {
+      if (cancelled || TERMINAL_STATUSES.has(statusRef.current)) return;
+
+      ws = new WebSocket(jobProgressSocketUrl(job.id));
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (typeof data.progress === "number") {
+            setProgress(Math.min(100, Math.max(0, data.progress)));
+          }
+        } catch {
+          /* ignore malformed frame */
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelled || TERMINAL_STATUSES.has(statusRef.current)) return;
+        retryTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+      };
+    }
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+      ws?.close();
     };
-
-    return () => ws.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id]);
 
   useEffect(() => {
     if (TERMINAL_STATUSES.has(job.status)) return;
 
-    const source = new EventSource(jobStatusStreamUrl(job.id), { withCredentials: true });
+    let cancelled = false;
+    let source;
+    let retryTimer;
 
-    source.onmessage = (event) => {
-      const nextStatus = event.data; // plain string, not JSON — see note above
-      setStatus(nextStatus);
-      if (TERMINAL_STATUSES.has(nextStatus)) source.close();
+    function connect() {
+      if (cancelled || TERMINAL_STATUSES.has(statusRef.current)) return;
+
+      source = new EventSource(jobStatusStreamUrl(job.id), { withCredentials: true });
+
+      source.onmessage = (event) => {
+        const nextStatus = event.data; // plain string, not JSON
+        setStatus(nextStatus);
+        if (TERMINAL_STATUSES.has(nextStatus)) source.close();
+      };
+
+      source.onerror = () => {
+        source.close();
+        if (cancelled || TERMINAL_STATUSES.has(statusRef.current)) return;
+        retryTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+      };
+    }
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+      source?.close();
     };
-
-    source.onerror = () => source.close();
-
-    return () => source.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id]);
 

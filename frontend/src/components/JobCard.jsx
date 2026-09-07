@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useJobLiveState } from "../hooks/useJobLiveState";
 import { cancelJob } from "../api/jobs";
 import { formatJobType, statusMeta } from "../lib/format";
@@ -7,6 +7,7 @@ import JobLogsModal from "./JobLogsModal";
 import "./JobCard.css";
 
 const CANCELLABLE = new Set(["pending", "running"]);
+const TERMINAL = new Set(["completed", "failed", "cancelled"]);
 
 export default function JobCard({ job, onChanged, onError, ownerLabel }) {
   const { progress, status } = useJobLiveState(job);
@@ -14,14 +15,29 @@ export default function JobCard({ job, onChanged, onError, ownerLabel }) {
   const [cancelling, setCancelling] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
 
-  const meta = statusMeta(status);
-  const canCancel = CANCELLABLE.has(status);
+  // The backend's cancel endpoint only sets a Redis flag — it doesn't
+  // touch the job's actual status, and the worker has to notice that flag
+  // on its own schedule before anything really changes. Without this,
+  // the card would look like cancel did nothing for however long that
+  // takes. This just tells the truth about what's happening in between:
+  // request sent, waiting for the worker to actually honor it.
+  const [cancelRequested, setCancelRequested] = useState(false);
+
+  useEffect(() => {
+    if (TERMINAL.has(status)) setCancelRequested(false);
+  }, [status]);
+
+  const meta = cancelRequested
+    ? { label: "Cancelling…", ink: "var(--signal-cancelled)", bg: "var(--signal-cancelled-bg)" }
+    : statusMeta(status);
+  const canCancel = CANCELLABLE.has(status) && !cancelRequested;
 
   async function handleConfirmCancel() {
     setCancelling(true);
     try {
       await cancelJob(job.id);
       setConfirmingCancel(false);
+      setCancelRequested(true);
       onChanged?.();
     } catch (err) {
       onError?.(err);

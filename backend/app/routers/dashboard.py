@@ -13,7 +13,7 @@ router = APIRouter(prefix = "/dashboard")
 @limiter.limit(settings.RATE_LIMIT)
 def getAdminDashboardStats(
     request : Request,
-    current_user = require_role(UserRole.ADMIN),
+    current_user = Depends(require_role(UserRole.ADMIN)),
     db : Session = Depends(get_db),
     response_model = AdmindashboardSchema
 ):
@@ -23,7 +23,7 @@ def getAdminDashboardStats(
 @limiter.limit(settings.RATE_LIMIT)
 def getMemberDashboardStats(
     request : Request,
-    current_user = require_role(UserRole.MEMBER),
+    current_user = Depends(require_role(UserRole.MEMBER)),
     db : Session = Depends(get_db),
     response_model = MemberDashboardSchema
 ):

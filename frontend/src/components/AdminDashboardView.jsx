@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
 import { getAdminDashboard } from "../api/dashboard";
 import { useErrorModal } from "../context/ErrorModalContext";
-import StatCard, { BreakdownCard } from "./StatCard";
+import StatCard from "./StatCard";
 
+/**
+ * get_Admin_dashboard_stats actually returns:
+ *   { total_users, total_jobs, worker_status: { active_workers } }
+ * — no jobs_by_status at all, despite AdmindashboardSchema declaring one
+ * (that field is never computed on the backend, and response_model isn't
+ * actually wired to the route — see NOTES.md). So this shows three plain
+ * numbers instead of a breakdown that has no data to show.
+ */
 export default function AdminDashboardView() {
   const { reportError } = useErrorModal();
   const [stats, setStats] = useState(null);
@@ -25,16 +33,15 @@ export default function AdminDashboardView() {
       {!stats ? (
         <div className="empty-state">Loading stats…</div>
       ) : (
-        <>
-          <div className="grid-jobs" style={{ marginBottom: 20 }}>
-            <StatCard label="Total users" value={stats.total_users ?? 0} accent="var(--signal-done)" />
-            <StatCard label="Total jobs" value={stats.total_jobs ?? 0} accent="var(--signal-running)" />
-          </div>
-          <div className="grid-jobs">
-            <BreakdownCard title="Jobs by status" entries={stats.jobs_by_status} />
-            <BreakdownCard title="Worker status" entries={stats.worker_status} />
-          </div>
-        </>
+        <div className="grid-jobs">
+          <StatCard label="Total users" value={stats.total_users ?? 0} accent="var(--signal-done)" />
+          <StatCard label="Total jobs" value={stats.total_jobs ?? 0} accent="var(--signal-running)" />
+          <StatCard
+            label="Active workers"
+            value={stats.worker_status?.active_workers ?? 0}
+            accent="var(--signal-pending)"
+          />
+        </div>
       )}
     </>
   );

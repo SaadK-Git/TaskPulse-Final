@@ -6,6 +6,16 @@ import JobCard from "./JobCard";
 
 const PAGE_SIZE = 9;
 
+/** Must match app/enums.py JobType — anything else makes the backend's
+ * `JobType(jobtype)` conversion raise. Empty string = JobType.ALL = no filter. */
+const JOB_TYPES = [
+  { value: "", label: "All types" },
+  { value: "data_processing", label: "Data Processing" },
+  { value: "report_generation", label: "Report Generation" },
+  { value: "bulk_email", label: "Bulk Email" },
+  { value: "image_resize", label: "Image Resize" },
+];
+
 export default function AdminJobsView() {
   const { reportError } = useErrorModal();
   const [page, setPage] = usePersistedState("adm.jobs.page", 1);
@@ -41,15 +51,20 @@ export default function AdminJobsView() {
         <div style={{ display: "flex", gap: 12 }}>
           <div className="field">
             <label htmlFor="jobtype-filter">Job type</label>
-            <input
+            <select
               id="jobtype-filter"
-              placeholder="e.g. DATA_PROCESSING"
               value={jobType}
               onChange={(e) => {
                 setPage(1);
                 setJobType(e.target.value);
               }}
-            />
+            >
+              {JOB_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="state-filter">Status</label>

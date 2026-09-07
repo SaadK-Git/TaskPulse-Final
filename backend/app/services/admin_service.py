@@ -26,22 +26,27 @@ def get_AllUsers(
         "users": users
     }
 
-def get_all_Jobs(
+def get_all_jobs(
         db,
         page: int = 1,
         page_size: int = 10,
-        jobtype : str = "",
-        state : bool = True
+        jobtype: str = "",
+        state: bool = True
 ):
     # Calculate the offset for pagination
     offset = (page - 1) * page_size
-    #Apply Filtering
+
+    # Base query — this line was missing entirely, which is what caused
+    # the NameError every time this endpoint was hit
+    jobs_query = db.query(job.Job)
+
+    # Apply filtering
     if jobtype != "":
         jobs_query = jobs_query.filter(job.Job.job_type == JobType(jobtype))
-        total_jobs = jobs_query.count()  # Update total count after filtering
-    else:
-    # Get total count of jobs matching the state
-        total_jobs = jobs_query.count()
+
+    # Get total count of jobs matching the filters
+    total_jobs = jobs_query.count()
+
     # Apply pagination
     jobs = jobs_query.offset(offset).limit(page_size).all()
 

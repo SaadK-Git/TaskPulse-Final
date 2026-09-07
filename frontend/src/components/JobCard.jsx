@@ -6,7 +6,7 @@ import ConfirmModal from "./ConfirmModal";
 import JobLogsModal from "./JobLogsModal";
 import "./JobCard.css";
 
-const CANCELLABLE = new Set(["PENDING", "RUNNING"]);
+const CANCELLABLE = new Set(["pending", "running"]);
 
 export default function JobCard({ job, onChanged, onError, ownerLabel }) {
   const { progress, status } = useJobLiveState(job);

@@ -1,62 +1,50 @@
 import { useState } from "react";
 import "./Modal.css";
 
-const KNOWN_JOB_TYPES = ["DATA_PROCESSING", "IMAGE_RESIZE", "REPORT_GENERATION", "EMAIL_BATCH"];
+/**
+ * Must match TASK_MAP in app/services/job_service.py exactly — job_type
+ * is looked up there with a plain dict.get(), so anything else (including
+ * the uppercase guesses this file used to have) 400s with "Unsupported
+ * job type". No free-text/custom option, since there's nothing on the
+ * backend that would accept one.
+ */
+const JOB_TYPES = [
+  { value: "data_processing", label: "Data Processing" },
+  { value: "report_generation", label: "Report Generation" },
+  { value: "bulk_email", label: "Bulk Email" },
+  { value: "image_resize", label: "Image Resize" },
+];
 
 export default function CreateJobModal({ onCreate, onClose, creating }) {
-  const [jobType, setJobType] = useState(KNOWN_JOB_TYPES[0]);
-  const [custom, setCustom] = useState("");
-  const [useCustom, setUseCustom] = useState(false);
+  const [jobType, setJobType] = useState(JOB_TYPES[0].value);
 
   function handleSubmit(e) {
     e.preventDefault();
-    onCreate(useCustom ? custom.trim().toUpperCase() : jobType);
+    onCreate(jobType);
   }
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <h3>Start a new job</h3>
-        <form className="field" style={{ marginTop: 14, gap: 14 }} onSubmit={handleSubmit}>
-          {!useCustom ? (
-            <div className="field">
-              <label htmlFor="job-type">Job type</label>
-              <select id="job-type" value={jobType} onChange={(e) => setJobType(e.target.value)}>
-                {KNOWN_JOB_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="field">
-              <label htmlFor="job-type-custom">Job type</label>
-              <input
-                id="job-type-custom"
-                value={custom}
-                onChange={(e) => setCustom(e.target.value)}
-                placeholder="CUSTOM_JOB_TYPE"
-                required
-              />
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="btn btn--link"
-            style={{ width: "fit-content" }}
-            onClick={() => setUseCustom((v) => !v)}
-          >
-            {useCustom ? "Choose from list instead" : "Use a custom job type"}
-          </button>
+        <form onSubmit={handleSubmit}>
+          <div className="field" style={{ marginTop: 14 }}>
+            <label htmlFor="job-type">Job type</label>
+            <select id="job-type" value={jobType} onChange={(e) => setJobType(e.target.value)}>
+              {JOB_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={creating}>
               Cancel
             </button>
             <button type="submit" className="btn btn--primary" disabled={creating}>
-              {creating ? "Starting\u2026" : "Start job"}
+              {creating ? "Starting…" : "Start job"}
             </button>
           </div>
         </form>

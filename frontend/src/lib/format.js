@@ -6,19 +6,23 @@ export function formatJobType(jobType = "") {
     .join(" ");
 }
 
+/**
+ * Matches app/enums.py JobStatus values exactly: pending, running,
+ * completed, failed, cancelled (all lowercase).
+ */
 export function statusMeta(status) {
   switch (status) {
-    case "RUNNING":
+    case "running":
       return { label: "Running", ink: "var(--signal-running)", bg: "var(--signal-running-bg)" };
-    case "COMPLETED":
+    case "completed":
       return { label: "Completed", ink: "var(--signal-done)", bg: "var(--signal-done-bg)" };
-    case "FAILED":
+    case "failed":
       return { label: "Failed", ink: "var(--signal-failed)", bg: "var(--signal-failed-bg)" };
-    case "CANCELLED":
+    case "cancelled":
       return { label: "Cancelled", ink: "var(--signal-cancelled)", bg: "var(--signal-cancelled-bg)" };
-    case "PENDING":
+    case "pending":
     default:
-      return { label: status ? status.charAt(0) + status.slice(1).toLowerCase() : "Pending", ink: "var(--signal-pending)", bg: "var(--signal-pending-bg)" };
+      return { label: status ? status.charAt(0).toUpperCase() + status.slice(1) : "Pending", ink: "var(--signal-pending)", bg: "var(--signal-pending-bg)" };
   }
 }
 

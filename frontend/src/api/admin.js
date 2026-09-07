@@ -1,15 +1,6 @@
 import { apiClient } from "./client";
 
-/**
- * Matches app/routers/admin.py (prefix /admin, role: ADMIN).
- *
- * ASSUMPTION (please confirm against get_AllUsers / get_all_Jobs in
- * admin_service.py): the `state` flag is treated as "show active only"
- * vs "show deactivated only" — there's no third "show everything" value
- * since it's a plain bool with default True. If the service actually
- * ignores `state` when omitted, swap the two-way toggle in UsersView
- * for a three-way one and drop the default here.
- */
+/** Matches app/routers/admin.py exactly (prefix /admin, under /api). */
 
 export function getAllUsers({ page = 1, pageSize = 10, activeOnly = true } = {}) {
   return apiClient.get("/admin/allUsers", {
@@ -32,18 +23,20 @@ export function activateUser(userId) {
 }
 
 /**
- * The two list endpoints don't have a documented envelope. This normalizes
- * either a bare array or a `{ items / results / users / projects, total }`
- * shaped response so the UI doesn't care which one comes back.
+ * Confirmed against admin_service.py:
+ *   get_AllUsers  -> { total_users, page, page_size, users }
+ *   get_all_jobs  -> { total_jobs, page, page_size, jobs }
+ * (Two different envelope shapes for two different lists — this reads
+ * whichever pair is present instead of assuming one fixed shape.)
  */
 export function normalizeList(payload) {
   if (Array.isArray(payload)) {
     return { items: payload, total: payload.length };
   }
   if (payload && typeof payload === "object") {
-    const items =
-      payload.items || payload.results || payload.users || payload.projects || payload.jobs || [];
-    return { items, total: payload.total ?? items.length };
+    const items = payload.users || payload.jobs || payload.items || [];
+    const total = payload.total_users ?? payload.total_jobs ?? payload.total ?? items.length;
+    return { items, total };
   }
   return { items: [], total: 0 };
 }

@@ -2,11 +2,7 @@ import { useState } from "react";
 import ConfirmModal from "./ConfirmModal";
 import "./UserCard.css";
 
-/**
- * ASSUMPTION: the user object exposes an `is_active` boolean (not shown
- * in the schemas you shared). If the field is named differently, change
- * the one line below — everything else derives from `active`.
- */
+/** Confirmed against app/models/user.py: User.is_active is a real Boolean column. */
 export default function UserCard({ user, onToggle, onError }) {
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);

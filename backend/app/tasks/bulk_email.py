@@ -102,16 +102,16 @@ def send_bulk_email(self, job_id: str):
             log = {
                 "job_id": str(job.id),
                 "message": "Bulk email processing started",
-                "level": "info",
+                "level": JobLogLevel.INFO
             }
-
-            log["level"] = JobLogLevel.INFO
 
             db.add(
                 JobLog(**log)
             )
 
             db.commit()
+
+            log["level"] = "info"
 
             add_log(job_id, log)
             publish_log(job_id, log)
@@ -146,11 +146,10 @@ def send_bulk_email(self, job_id: str):
                 log = {
                     "job_id": str(job.id),
                     "message": "Bulk email processing cancelled",
-                    "level": "warning",
+                    "level": JobLogLevel.WARNING
                 }
 
                 # For PostgreSQL
-                log["level"] = JobLogLevel.WARNING
 
                 db.add(JobLog(**log))               
 
@@ -161,6 +160,9 @@ def send_bulk_email(self, job_id: str):
                 db.commit()
                 # db.refresh(job)
                 #Adding the cancellation log to Redis through key+channel.
+
+                log["level"] = "warning"
+
                 add_log(job_id, log)
                 publish_log(job_id, log)
 
@@ -199,11 +201,10 @@ def send_bulk_email(self, job_id: str):
                     f"{stage} — "
                     f"{progress}% complete"
                 ),
-                "level": "info",
+                "level": JobLogLevel.INFO
             }
 
             # For PostgreSQL
-            log["level"] = JobLogLevel.INFO
 
             db.add(JobLog(**log))
 
@@ -213,6 +214,7 @@ def send_bulk_email(self, job_id: str):
             # ---------------------------------------------
             # Redis live progress
             # ---------------------------------------------
+            log["level"] = "info"
 
             try:
                 #setting progress key + publishing the progress to respective channel for websocket.
@@ -239,6 +241,7 @@ def send_bulk_email(self, job_id: str):
         # PHASE 6
         # Task completed
         # =================================================
+        #First make changes except for logs to database..
         job.progress = 100
 
         job.completed_at = (
@@ -252,6 +255,8 @@ def send_bulk_email(self, job_id: str):
             ),
             "stages_completed": len(STAGES),
         }
+        
+        job.status = JobStatus.COMPLETED
 
         db.commit()
 
@@ -259,16 +264,12 @@ def send_bulk_email(self, job_id: str):
         # ---------------------------------------------
         # Final completion log
         # ---------------------------------------------
+        #task completed log..
         log = {
             "job_id": str(job.id),
             "message": "Bulk email processing completed successfully",
-            "level": "info",
+            "level": JobLogLevel.INFO
         }
-
-        add_log(job_id, log)
-        publish_log(job_id, log)
-
-        log["level"] = JobLogLevel.INFO    
 
         db.add(
             JobLog(**log)
@@ -276,6 +277,10 @@ def send_bulk_email(self, job_id: str):
 
         db.commit()
 
+        log["level"] = "info"    
+     
+        add_log(job_id, log)
+        publish_log(job_id, log)
         # ---------------------------------------------
         # Final Status Update.
         # ---------------------------------------------
@@ -283,9 +288,6 @@ def send_bulk_email(self, job_id: str):
         #progress status key update.
         set_progress_status(job_id, "completed")
         publish_progress_status(job_id, "completed")
-
-        job.status = JobStatus.COMPLETED
-
         # ---------------------------------------------
         # Dashboard cache invalidation
         # ---------------------------------------------
@@ -328,10 +330,6 @@ def send_bulk_email(self, job_id: str):
             )
 
             if job:
-
-                set_progress_status(job_id, "failed")
-                publish_progress_status(job_id, "failed")
-
                 job.status = JobStatus.FAILED
 
                 job.error = str(exc)
@@ -341,6 +339,9 @@ def send_bulk_email(self, job_id: str):
                 )
 
                 db.commit()
+                
+                set_progress_status(job_id, "failed")
+                publish_progress_status(job_id, "failed")
 
                 log = {
                     "job_id": str(job.id),
@@ -348,19 +349,19 @@ def send_bulk_email(self, job_id: str):
                         f"Bulk email processing failed: "
                         f"{exc}"
                     ),
-                    "level": "error",
+                    "level": JobLogLevel.ERROR
                 }
 
                 db.add(
                     JobLog(**log)
                 )
 
-                log["level"] = JobLogLevel.ERROR
+                db.commit()
+
+                log["level"] = "error"
 
                 add_log(job_id, log)
                 publish_log(job_id, log)
-
-                db.commit()
 
 
                 try:

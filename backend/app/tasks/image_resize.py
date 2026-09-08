@@ -88,26 +88,26 @@ def resize_image(self, job_id: str):
 
             job.progress = 0
 
+            db.commit()
+
             set_progress_status(job_id, "running")
             publish_progress_status(job_id, "running")
-
-            db.commit()
 
             #Cache the initial log message in Redis and save in PostgreSQL    
 
             log = {
                 "job_id": str(job.id),
                 "message": "Image resize processing started",
-                "level": "info",
+                "level": JobLogLevel.INFO
             }
-
-            log["level"] = JobLogLevel.INFO
 
             db.add(
                 JobLog(**log)
             )
 
             db.commit()
+
+            log["level"] = "info"
 
             add_log(job_id, log)
             publish_log(job_id, log)
@@ -142,11 +142,10 @@ def resize_image(self, job_id: str):
                 log = {
                     "job_id": str(job.id),
                     "message": "Image resize processing cancelled",
-                    "level": "warning",
+                    "level": JobLogLevel.WARNING
                 }
 
                 # For PostgreSQL
-                log["level"] = JobLogLevel.WARNING
 
                 db.add(JobLog(**log))               
 
@@ -157,6 +156,8 @@ def resize_image(self, job_id: str):
                 db.commit()
                 # db.refresh(job)
                 #Adding the cancellation log to Redis through key+channel.
+                log["level"] = "warning"
+
                 add_log(job_id, log)
                 publish_log(job_id, log)
 
@@ -195,17 +196,16 @@ def resize_image(self, job_id: str):
                     f"{stage} — "
                     f"{progress}% complete"
                 ),
-                "level": "info",
+                "level": JobLogLevel.INFO
             }
 
             # For PostgreSQL
-            log["level"] = JobLogLevel.INFO
 
             db.add(JobLog(**log))
 
             db.commit()
 
-
+            log["level"] = "info"
             # ---------------------------------------------
             # Redis live progress
             # ---------------------------------------------
@@ -236,6 +236,7 @@ def resize_image(self, job_id: str):
         # Task completed
         # =================================================
         job.progress = 100
+        job.status = JobStatus.COMPLETED
 
         job.completed_at = (
             datetime.now(timezone.utc)
@@ -258,13 +259,8 @@ def resize_image(self, job_id: str):
         log = {
             "job_id": str(job.id),
             "message": "Image resize processing completed successfully",
-            "level": "info",
+            "level": JobLogLevel.INFO
         }
-
-        add_log(job_id, log)
-        publish_log(job_id, log)
-
-        log["level"] = JobLogLevel.INFO    
 
         db.add(
             JobLog(**log)
@@ -272,6 +268,10 @@ def resize_image(self, job_id: str):
 
         db.commit()
 
+        log["level"] =  "info"   
+
+        add_log(job_id, log)
+        publish_log(job_id, log)
         # ---------------------------------------------
         # Final Status Update.
         # ---------------------------------------------
@@ -280,7 +280,6 @@ def resize_image(self, job_id: str):
         set_progress_status(job_id, "completed")
         publish_progress_status(job_id, "completed")
 
-        job.status = JobStatus.COMPLETED
 
         # ---------------------------------------------
         # Dashboard cache invalidation
@@ -344,21 +343,21 @@ def resize_image(self, job_id: str):
                         f"Image resize processing failed: "
                         f"{exc}"
                     ),
-                    "level": "error",
+                    "level": JobLogLevel.ERROR
                 }
 
                 db.add(
                     JobLog(**log)
                 )
 
-                log["level"] = JobLogLevel.ERROR
-
-                add_log(job_id, log)
-                publish_log(job_id, log)
 
                 db.commit()
 
+                log["level"] = "error"
 
+                add_log(job_id, log)
+                publish_log(job_id, log)
+                
                 try:
 
                     redis_client.delete(

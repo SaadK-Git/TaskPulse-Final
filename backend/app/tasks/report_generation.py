@@ -90,26 +90,25 @@ def generate_report(self, job_id: str):
 
             job.progress = 0
 
-            set_progress_status(job_id, "running")
-            publish_progress_status(job_id, "running")
-
             db.commit()
 
+            set_progress_status(job_id, "running")
+            publish_progress_status(job_id, "running")
             #Cache the initial log message in Redis and save in PostgreSQL    
 
             log = {
                 "job_id": str(job.id),
                 "message": "Report generation processing started",
-                "level": "info",
+                "level": JobLogLevel.INFO,
             }
-
-            log["level"] = JobLogLevel.INFO
 
             db.add(
                 JobLog(**log)
-            )
+            )           
 
             db.commit()
+
+            log["level"] = "info" #for redis
 
             add_log(job_id, log)
             publish_log(job_id, log)
@@ -144,12 +143,10 @@ def generate_report(self, job_id: str):
                 log = {
                     "job_id": str(job.id),
                     "message": "Report generation processing cancelled",
-                    "level": "warning",
+                    "level": JobLogLevel.WARNING,
                 }
 
                 # For PostgreSQL
-                log["level"] = JobLogLevel.WARNING
-
                 db.add(JobLog(**log))               
 
                 job.result = {
@@ -159,6 +156,8 @@ def generate_report(self, job_id: str):
                 db.commit()
                 # db.refresh(job)
                 #Adding the cancellation log to Redis through key+channel.
+                log["level"] = "warning" #for redis  
+
                 add_log(job_id, log)
                 publish_log(job_id, log)
 
@@ -180,7 +179,7 @@ def generate_report(self, job_id: str):
             # Simulate stage work
             # ---------------------------------------------
 
-            time.sleep(30)
+            time.sleep(5)  # Simulate work for 5 seconds
 
 
             # ---------------------------------------------
@@ -197,16 +196,15 @@ def generate_report(self, job_id: str):
                     f"{stage} — "
                     f"{progress}% complete"
                 ),
-                "level": "info",
+                "level": JobLogLevel.INFO,
             }
 
             # For PostgreSQL
-            log["level"] = JobLogLevel.INFO
-
             db.add(JobLog(**log))
 
             db.commit()
 
+            log["level"] = "info" #for redis
 
             # ---------------------------------------------
             # Redis live progress
@@ -239,6 +237,8 @@ def generate_report(self, job_id: str):
         # =================================================
         job.progress = 100
 
+        job.status = JobStatus.COMPLETED
+
         job.completed_at = (
             datetime.now(timezone.utc)
         )
@@ -260,13 +260,8 @@ def generate_report(self, job_id: str):
         log = {
             "job_id": str(job.id),
             "message": "Report generation processing completed successfully",
-            "level": "info",
+            "level": JobLogLevel.INFO,
         }
-
-        add_log(job_id, log)
-        publish_log(job_id, log)
-
-        log["level"] = JobLogLevel.INFO    
 
         db.add(
             JobLog(**log)
@@ -274,6 +269,10 @@ def generate_report(self, job_id: str):
 
         db.commit()
 
+        log["level"] = "info" #for redis
+
+        add_log(job_id, log)
+        publish_log(job_id, log)
         # ---------------------------------------------
         # Final Status Update.
         # ---------------------------------------------
@@ -281,9 +280,6 @@ def generate_report(self, job_id: str):
         #progress status key update.
         set_progress_status(job_id, "completed")
         publish_progress_status(job_id, "completed")
-
-        job.status = JobStatus.COMPLETED
-
         # ---------------------------------------------
         # Dashboard cache invalidation
         # ---------------------------------------------
@@ -346,21 +342,19 @@ def generate_report(self, job_id: str):
                         f"Report generation processing failed: "
                         f"{exc}"
                     ),
-                    "level": "error",
+                    "level": JobLogLevel.ERROR,
                 }
 
                 db.add(
                     JobLog(**log)
                 )
 
-                log["level"] = JobLogLevel.ERROR
+                db.commit()
+
+                log["level"] = "error" #for redis
 
                 add_log(job_id, log)
                 publish_log(job_id, log)
-
-                db.commit()
-
-
                 try:
 
                     redis_client.delete(

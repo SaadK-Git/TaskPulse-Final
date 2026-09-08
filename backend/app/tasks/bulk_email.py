@@ -184,7 +184,7 @@ def send_bulk_email(self, job_id: str):
             # Simulate stage work
             # ---------------------------------------------
 
-            time.sleep(30)
+            time.sleep(5)
 
 
             # ---------------------------------------------
@@ -339,7 +339,7 @@ def send_bulk_email(self, job_id: str):
                 )
 
                 db.commit()
-                
+
                 set_progress_status(job_id, "failed")
                 publish_progress_status(job_id, "failed")
 

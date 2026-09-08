@@ -179,7 +179,7 @@ def resize_image(self, job_id: str):
             # Simulate stage work
             # ---------------------------------------------
 
-            time.sleep(30)
+            time.sleep(5)
 
 
             # ---------------------------------------------
@@ -357,7 +357,7 @@ def resize_image(self, job_id: str):
 
                 add_log(job_id, log)
                 publish_log(job_id, log)
-                
+
                 try:
 
                     redis_client.delete(

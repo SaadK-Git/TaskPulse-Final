@@ -179,7 +179,7 @@ def process_data(self, job_id: str):
             # Simulate stage work
             # ---------------------------------------------
 
-            time.sleep(30)
+            time.sleep(5)
 
 
             # ---------------------------------------------

@@ -83,7 +83,7 @@ def send_bulk_email(self, job_id: str):
         # Establish RUNNING state
         # =================================================
 
-        if job.status != JobStatus.RUNNING:
+        if job.status == JobStatus.PENDING:
 
             job.status = JobStatus.RUNNING
             job.started_at = (

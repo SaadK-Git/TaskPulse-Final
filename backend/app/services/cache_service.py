@@ -32,7 +32,7 @@ def set_Dashboard_stats(role, stats,job_id = 0):
     redis_client.set(
         key,
         json.dumps(stats),
-        ex = 3600
+        ex = 180
     )
 def get_Dashboard_stats(role,job_id):
 

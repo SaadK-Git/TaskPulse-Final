@@ -25,9 +25,11 @@ def get_progress_channel(job_id):
 # =====================================================
 # DASHBOARD VALUE
 # =====================================================
+def dashboard_stats_key(role,job_id):
+    return f"dashboard:{role}:stats:value:{job_id}" 
 def set_Dashboard_stats(role, stats,job_id = 0):
 
-    key = f"dashboard:{role}:stats:value:{job_id}" 
+    key = dashboard_stats_key(role,job_id)
 
     redis_client.set(
         key,
@@ -36,7 +38,7 @@ def set_Dashboard_stats(role, stats,job_id = 0):
     )
 def get_Dashboard_stats(role,job_id):
 
-    key = f"dashboard:{role}:stats:value:{job_id}" 
+    key = dashboard_stats_key(role,job_id)
 
     stats = redis_client.get(key)
 

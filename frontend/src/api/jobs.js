@@ -2,8 +2,8 @@ import { apiClient, WS_BASE, API_BASE } from "./client";
 
 /** Matches app/routers/jobs.py (prefix /jobs, role: MEMBER). */
 
-export function getJobs({ page = 1, pageSize = 10 } = {}) {
-  return apiClient.get(`/jobs/getjobs/${page}`, { params: { page_size: pageSize } });
+export function getJobs({ page = 1, pageSize = 10, jobType = "" } = {}) {
+  return apiClient.get(`/jobs/getjobs/${page}`, { params: { page_size: pageSize, jobtype: jobType } });
 }
 
 export function createJob(jobType) {

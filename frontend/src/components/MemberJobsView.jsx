@@ -7,9 +7,19 @@ import CreateJobModal from "./CreateJobModal";
 
 const PAGE_SIZE = 9;
 
+/** Must match app/enums.py JobType — same set CreateJobModal already uses. */
+const JOB_TYPES = [
+  { value: "", label: "All types" },
+  { value: "data_processing", label: "Data Processing" },
+  { value: "report_generation", label: "Report Generation" },
+  { value: "bulk_email", label: "Bulk Email" },
+  { value: "image_resize", label: "Image Resize" },
+];
+
 export default function MemberJobsView() {
   const { reportError } = useErrorModal();
   const [page, setPage] = usePersistedState("mem.jobs.page", 1);
+  const [jobType, setJobType] = usePersistedState("mem.jobs.jobtype", "");
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -17,20 +27,20 @@ export default function MemberJobsView() {
 
   const load = useCallback(() => {
     setLoading(true);
-    getJobs({ page, pageSize: PAGE_SIZE })
+    getJobs({ page, pageSize: PAGE_SIZE, jobType })
       .then((data) => setJobs(Array.isArray(data) ? data : []))
       .catch((err) => reportError(err, "Couldn't load your jobs"))
       .finally(() => setLoading(false));
-  }, [page, reportError]);
+  }, [page, jobType, reportError]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function handleCreate(jobType) {
+  async function handleCreate(newJobType) {
     setCreating(true);
     try {
-      await createJob(jobType);
+      await createJob(newJobType);
       setShowCreate(false);
       setPage(1);
       load();
@@ -48,16 +58,37 @@ export default function MemberJobsView() {
           <h1>Jobs</h1>
           <p>Every job you've started, updating live.</p>
         </div>
-        <button className="btn btn--primary" onClick={() => setShowCreate(true)}>
-          + New job
-        </button>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+          <div className="field">
+            <label htmlFor="mem-jobtype-filter">Job type</label>
+            <select
+              id="mem-jobtype-filter"
+              value={jobType}
+              onChange={(e) => {
+                setPage(1);
+                setJobType(e.target.value);
+              }}
+            >
+              {JOB_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn--primary" onClick={() => setShowCreate(true)}>
+            + New job
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="empty-state">Loading jobs…</div>
       ) : jobs.length === 0 ? (
         <div className="empty-state">
-          No jobs yet. Start one with <strong>New job</strong> above.
+          {jobType
+            ? "No jobs match this filter."
+            : <>No jobs yet. Start one with <strong>New job</strong> above.</>}
         </div>
       ) : (
         <div className="grid-jobs">

@@ -1,7 +1,9 @@
 import "./Modal.css";
+import Portal from "./Portal";
 
 export default function ErrorModal({ error, onClose }) {
   return (
+    <Portal>
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal modal--error"
@@ -22,5 +24,6 @@ export default function ErrorModal({ error, onClose }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

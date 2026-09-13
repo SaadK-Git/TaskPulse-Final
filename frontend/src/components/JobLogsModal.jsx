@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getJobLogs, jobLogsStreamUrl } from "../api/jobs";
 import "./Modal.css";
 import "./JobLogsModal.css";
+import Portal from "./Portal";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
@@ -89,6 +90,7 @@ export default function JobLogsModal({ job, onClose, onError }) {
   }, [logs.length]);
 
   return (
+    <Portal>
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal modal--wide logs-modal"
@@ -118,5 +120,6 @@ export default function JobLogsModal({ job, onClose, onError }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

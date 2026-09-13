@@ -1,4 +1,5 @@
 import "./Modal.css";
+import Portal from "./Portal";
 
 export default function ConfirmModal({
   title,
@@ -10,6 +11,7 @@ export default function ConfirmModal({
   onCancel,
 }) {
   return (
+    <Portal>
     <div className="modal-backdrop" role="presentation" onClick={onCancel}>
       <div
         className="modal"
@@ -29,10 +31,11 @@ export default function ConfirmModal({
             onClick={onConfirm}
             disabled={busy}
           >
-            {busy ? "Working\u2026" : confirmLabel}
+            {busy ? "Working…" : confirmLabel}
           </button>
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

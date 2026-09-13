@@ -36,9 +36,10 @@ def get_jobs(
     db: Session = Depends(get_db),
     current_user = Depends(require_role(UserRole.MEMBER)),
     page: int = 1,
-    page_size: int = 10
+    page_size: int = 10,
+    jobtype : str = ""
 ):
-    return get_all_jobs(db, current_user.id, page, page_size)
+    return get_all_jobs(db, current_user.id, page, page_size,jobtype)
 #---------------------------------
 @router.post(
     "/createJob"
@@ -83,8 +84,7 @@ def create_new_job(
 def get_job_logs(
     request: Request,
     job_id: UUID,
-    db: Session = Depends(get_db),
-    current_user=Depends(require_role(UserRole.MEMBER)),
+    db: Session = Depends(get_db)
 ):
     return get_job_alllogs(db, job_id)
 

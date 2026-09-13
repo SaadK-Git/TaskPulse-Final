@@ -3,7 +3,7 @@ import json
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
-
+import time
 from app import redis_client
 from app.models.job import Job
 from app.tasks.data_processing import process_data
@@ -37,8 +37,11 @@ TASK_MAP = {
 
 }
 
-def get_all_jobs(db: Session, user_id: int,page: int = 1, page_size: int = 10):
-    return db.query(Job).filter(Job.user_id == user_id).offset((page - 1) * page_size).limit(page_size).all()
+def get_all_jobs(db: Session, user_id: int, page: int = 1, page_size: int = 10, jobtype: str = ""):
+    query = db.query(Job).filter(Job.user_id == user_id)
+    if jobtype != "":
+        query = query.filter(Job.job_type == JobType(jobtype))
+    return query.offset((page - 1) * page_size).limit(page_size).all()
 
 def create_job(
     db: Session,
@@ -275,6 +278,10 @@ async def event_stream_jobStatus(job_id: UUID):
     progress_status_channel = get_progress_status_channel(job_id)
 
     try:
+        status  = await get_progress_status(job_id)
+
+        yield f"data: {status}\n\n"
+
         await pubsub.subscribe(progress_status_channel)
 
         while True:

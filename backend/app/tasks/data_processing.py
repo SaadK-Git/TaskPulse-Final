@@ -19,6 +19,7 @@ from app.services.cache_service import (
     set_progress,
     set_progress_status,
     publish_progress_status,
+    dashboard_stats_key,
     create_async_pubsub,
 )
 
@@ -288,8 +289,9 @@ def process_data(self, job_id: str):
 
         try:
 
+            dashkey = dashboard_stats_key("member",job_id)
             redis_client.delete(
-                "dashboard:stats"
+                dashkey
             )
 
         except Exception:
@@ -361,8 +363,9 @@ def process_data(self, job_id: str):
 
                 try:
 
+                    dashkey = dashboard_stats_key("member",job_id)
                     redis_client.delete(
-                        "dashboard:stats"
+                        dashkey
                     )
 
                 except Exception:

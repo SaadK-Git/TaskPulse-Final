@@ -18,6 +18,7 @@ from app.services.cache_service import (
     set_progress,
     set_progress_status,
     publish_progress_status,
+    dashboard_stats_key,
     create_async_pubsub,
 )
 # =========================================================
@@ -286,9 +287,9 @@ def resize_image(self, job_id: str):
         # ---------------------------------------------
 
         try:
-
+            dashkey = dashboard_stats_key("member",job_id)
             redis_client.delete(
-                "dashboard:stats"
+                dashkey
             )
 
         except Exception:
@@ -360,8 +361,9 @@ def resize_image(self, job_id: str):
 
                 try:
 
+                    dashkey = dashboard_stats_key("member",job_id)
                     redis_client.delete(
-                        "dashboard:stats"
+                        dashkey
                     )
 
                 except Exception:

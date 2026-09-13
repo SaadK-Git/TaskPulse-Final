@@ -18,6 +18,7 @@ from app.services.cache_service import (
     set_progress,
     set_progress_status,
     publish_progress_status,
+    dashboard_stats_key,
     create_async_pubsub,
 )
 # =========================================================
@@ -286,8 +287,9 @@ def generate_report(self, job_id: str):
 
         try:
 
+            dashkey = dashboard_stats_key("member",job_id)
             redis_client.delete(
-                "dashboard:stats"
+                dashkey
             )
 
         except Exception:
@@ -357,8 +359,9 @@ def generate_report(self, job_id: str):
                 publish_log(job_id, log)
                 try:
 
+                    dashkey = dashboard_stats_key("member",job_id)
                     redis_client.delete(
-                        "dashboard:stats"
+                        dashkey
                     )
 
                 except Exception:

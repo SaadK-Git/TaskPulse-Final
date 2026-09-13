@@ -1,5 +1,5 @@
 from app.models import user, job
-from app.enums import JobStatus, JobType
+from app.enums import JobStatus, JobType,UserRole
 
 def get_AllUsers(
         db,
@@ -11,7 +11,7 @@ def get_AllUsers(
     offset = (page - 1) * page_size
 
     # Query to get users based on the state
-    users_query = db.query(user.User).filter(user.User.is_active == state)
+    users_query = db.query(user.User).filter(user.User.role == UserRole.MEMBER,user.User.is_active == state)
 
     # Get total count of users matching the state
     total_users = users_query.count()

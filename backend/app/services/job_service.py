@@ -12,7 +12,7 @@ from app.tasks.image_resize import resize_image
 from app.tasks.report_generation import generate_report
 from app.tasks.scheduled import *
 from app.enums import JobStatus,JobType
-from .cache_service import get_progress_key,get_progress_status_channel,set_progress_status,get_progress_status
+from .cache_service import delete_dashboard_stats,get_progress_key,get_progress_status_channel,set_progress_status,get_progress_status
 from app.redis_client import redis_client
 from app.database import SessionLocal
 from uuid import UUID 
@@ -49,6 +49,8 @@ def create_job(
     job_type: str,
     # title: str ,
 ):
+    # Delete dashboard stats cache for the user
+    delete_dashboard_stats("member",user_id)
     # Validate job type
     task = TASK_MAP.get(job_type)
 

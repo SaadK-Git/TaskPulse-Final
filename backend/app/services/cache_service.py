@@ -46,6 +46,10 @@ def get_Dashboard_stats(role,job_id):
         return None
 
     return json.loads(stats)
+
+def delete_dashboard_stats(role, job_id):
+    key = dashboard_stats_key(role, job_id)
+    redis_client.delete(key)
 # =====================================================
 # PROGRESS VALUE
 # =====================================================

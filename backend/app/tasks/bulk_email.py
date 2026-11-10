@@ -19,6 +19,7 @@ from app.services.cache_service import (
     publish_progress_status,
     dashboard_stats_key,
     create_async_pubsub,
+    delete_dashboard_stats
 )
 
     
@@ -48,7 +49,7 @@ STAGES = [
     bind=True,
     max_retries=3,
 )
-def send_bulk_email(self, job_id: str):
+def send_bulk_email(self, job_id: str,user_id: str):
 
     db = SessionLocal()
 
@@ -294,11 +295,8 @@ def send_bulk_email(self, job_id: str):
         # ---------------------------------------------
 
         try:    
-
-            dashkey = dashboard_stats_key("member",job_id)
-            redis_client.delete(
-                dashkey
-            )
+            
+            delete_dashboard_stats("member",user_id)
 
         except Exception:
 
@@ -368,10 +366,8 @@ def send_bulk_email(self, job_id: str):
 
                 try:
 
-                    dashkey = dashboard_stats_key("member",job_id)
-                    redis_client.delete(
-                        dashkey
-                    )
+                    delete_dashboard_stats("member",user_id)
+
 
                 except Exception:
 

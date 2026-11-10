@@ -13,6 +13,7 @@ def dispatch_job(
     # Send the job to Celery
     celery_result = task.delay(
         job_id=job.id,
+        user_id=job.user_id,
         # job_type=job.job_type,
     )
 

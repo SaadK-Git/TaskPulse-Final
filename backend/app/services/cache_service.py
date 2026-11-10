@@ -48,8 +48,21 @@ def get_Dashboard_stats(role,job_id):
     return json.loads(stats)
 
 def delete_dashboard_stats(role, job_id):
-    key = dashboard_stats_key(role, job_id)
-    redis_client.delete(key)
+    #Getting the member key and admin key in place.
+    
+    #Member key for the user viewing live task progress.
+    key1 = dashboard_stats_key(role, job_id)
+
+    #Admin key for all admin that might be viewing the dashboard.
+    key2 = dashboard_stats_key("admin", "*")
+    
+    #Gettig rid of all the relevant keys from the cache.
+
+    #getting rid of the member key.
+    redis_client.delete(key1)
+    #getting rid of the admin key(s).
+    for key in redis_client.scan_iter(match=key2):
+        redis_client.delete(key)                    
 # =====================================================
 # PROGRESS VALUE
 # =====================================================
